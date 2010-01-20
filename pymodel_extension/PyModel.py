@@ -34,10 +34,9 @@
 # </License>
 
     
-import os    
 
 from pymonkey import q
-
+import os
 from osis import init
 import osis.utils
 from osis.model.serializers import ThriftSerializer
