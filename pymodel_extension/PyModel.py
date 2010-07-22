@@ -131,6 +131,10 @@ class PyModel(object):
                     
     def __initialize(self):        
         parentPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey', 'models')
+        
+        if not q.system.fs.exists(parentPath):
+            q.system.fs.createDir(parentPath)
+        
         for subPath in os.listdir(parentPath):
             domainname = subPath
             specpath = q.system.fs.joinPaths(parentPath, subPath)
