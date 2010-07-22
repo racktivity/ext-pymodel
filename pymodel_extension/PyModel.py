@@ -34,39 +34,29 @@
 # </License>
 
     
+import os
 
 from pymonkey import q
-import os
-from osis import init
-import osis.utils
-from osis.model.serializers import ThriftSerializer
-from osis.model.serializers import YamlSerializer
-from XMLSerializer import XMLSerializer
-from ThriftBase64Serializer import ThriftBase64Serializer
-from osis import ROOTOBJECT_TYPES
+from pymodel import init
 
-from osis.client import OsisConnection
-from osis.client.connection import *
+import pymodel.utils
 
+from pymodel.serializers import ThriftSerializer
+from pymodel.serializers import YamlSerializer
+from pymodel.serializers import XMLSerializer
+from pymodel.serializers import ThriftBase64Serializer
+
+from pymodel import ROOTOBJECT_TYPES
 
 class Domain(object):
     pass
 
-class DummyConnection(object):
-    pass
-
-class PyModelOsisClient(object):
+class PyModelAccessor(object):
     
-    def __init__(self, transport, serializer):
-        '''Initialize a new OSIS root object client
-
-        @param transport: OSIS client transport
-        @type transport: object
-        @param serializer: Object serializer implementation
-        @type serializer: object
+    def __init__(self, rootobject_type):
+        '''Initialize a new pymodel root object accessor
         '''
-        self._transport = transport
-        self._serializer = serializer    
+        self._ROOTOBJECTTYPE = rootobject_type    
     
     def getEmptyModelObject(self, *args, **kwargs):
         return self._ROOTOBJECTTYPE(*args, **kwargs)
@@ -105,25 +95,39 @@ class PyModelOsisClient(object):
     
 
 
-class PyModel():
+class PyModel(object):
 
     __shared_state = {}
     
     def __init__(self):
         self.__dict__ = self.__shared_state
+        
+        # Keep track of domains
+        self._domains = {}
+        
         if not hasattr(self, 'initialized'):
             self.__initialize()
             setattr(self, 'initialized', True)
             
     def importDomain(self, domainname, specpath):
-        init(specpath, OsisConnection, PyModelOsisClient)
+
+        domain = Domain()      
         
-        domain = Domain()            
-        from osis import ROOTOBJECT_TYPES as types
-        for type in types.itervalues():
-            name = getattr(type, 'OSIS_TYPE_NAME', type.__name__.lower())                
-            setattr(domain, name, getattr(OsisConnection(None,None), name))
+        init(specpath, domainname)
+                 
+        from pymodel import ROOTOBJECT_TYPES as types
+        for type in types[domainname].itervalues():
+            name = getattr(type, 'PYMODEL_TYPE_NAME', type.__name__.lower())
+            setattr(domain, name, PyModelAccessor(type))
+            
         setattr(self, domainname, domain)
+        self._domains[domainname] = domain
+        
+    def listDomains(self):
+        '''
+        Returns the list of imported domain names
+        '''
+        return self._domains.keys()
                     
     def __initialize(self):        
         parentPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey', 'models')
@@ -131,4 +135,5 @@ class PyModel():
             domainname = subPath
             specpath = q.system.fs.joinPaths(parentPath, subPath)
             self.importDomain(domainname, specpath)
+            
             

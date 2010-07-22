@@ -34,8 +34,8 @@
 # </License>
     
 import xml.dom.minidom as dom
-import osis.model
-from osis.model.fields import EmptyObject
+import pymodel.model
+from pymodel.fields import EmptyObject
 from pymonkey.baseclasses.BaseEnumeration import BaseEnumeration
 
 def getType(obj):
@@ -67,16 +67,16 @@ def enum_to_string(obj):
 
 
 TYPE_HANDLERS = {
-    osis.model.String: lambda a, o: o,
-    osis.model.Enumeration: lambda a, o: enum_to_string(o),
-    osis.model.GUID: lambda a, o: o,
-    osis.model.Integer: lambda a, o: o,
-    osis.model.Float: lambda a, o: o,
-    osis.model.Boolean: lambda a, o: o,
-    osis.model.List: handle_list,
-    osis.model.Dict: handle_dict,
-    osis.model.Object: lambda a, o: object_to_dict(o),
-    osis.model.DateTime: lambda a, o: o,
+    pymodel.String: lambda a, o: o,
+    pymodel.Enumeration: lambda a, o: enum_to_string(o),
+    pymodel.GUID: lambda a, o: o,
+    pymodel.Integer: lambda a, o: o,
+    pymodel.Float: lambda a, o: o,
+    pymodel.Boolean: lambda a, o: o,
+    pymodel.List: handle_list,
+    pymodel.Dict: handle_dict,
+    pymodel.Object: lambda a, o: object_to_dict(o),
+    pymodel.DateTime: lambda a, o: o,
 }
 
 
@@ -85,7 +85,7 @@ def object_to_dict(object_):
         return None
 
     data = dict()
-    spec = type(object_).OSIS_MODEL_INFO
+    spec = type(object_).PYMODEL_MODEL_INFO
 
     for attribute in spec.attributes:
         attr = attribute.attribute
@@ -130,20 +130,20 @@ def load_list(attr, data):
     return result
 
 TYPE_SET_HANDLERS = {
-    osis.model.String: lambda a, o: o,
-    osis.model.Enumeration: lambda a, o: o,
-    osis.model.GUID: lambda a, o: o,
-    osis.model.Integer: lambda a, o: o,
-    osis.model.Float: lambda a, o: o,
-    osis.model.Boolean: lambda a, o: o,
-    osis.model.Dict: load_dict,
-    osis.model.Object: lambda a, o: dict_to_object(a.type_(), o),
-    osis.model.List: load_list,
-    osis.model.DateTime: lambda a, o:o,
+    pymodel.String: lambda a, o: o,
+    pymodel.Enumeration: lambda a, o: o,
+    pymodel.GUID: lambda a, o: o,
+    pymodel.Integer: lambda a, o: o,
+    pymodel.Float: lambda a, o: o,
+    pymodel.Boolean: lambda a, o: o,
+    pymodel.Dict: load_dict,
+    pymodel.Object: lambda a, o: dict_to_object(a.type_(), o),
+    pymodel.List: load_list,
+    pymodel.DateTime: lambda a, o:o,
 }
 
 def dict_to_object(object_, data):
-    spec = type(object_).OSIS_MODEL_INFO
+    spec = type(object_).PYMODEL_MODEL_INFO
 
     for attribute in spec.attributes:
         attr = attribute.attribute
@@ -224,6 +224,8 @@ def unpickleDict(node):
 
 
 class XMLSerializer(object):
+    
+    NAME = 'xml'
     
     @classmethod
     def serialize(cls, data):    

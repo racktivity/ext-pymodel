@@ -34,9 +34,11 @@
 # </License>
 
 import base64
-from osis.model.serializers import ThriftSerializer
+from pymodel.serializers import ThriftSerializer
 
 class ThriftBase64Serializer(ThriftSerializer):
+    
+    NAME = 'thriftbase64'
     
     @classmethod
     def serialize(cls, object_):
