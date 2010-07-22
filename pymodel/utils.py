@@ -75,7 +75,6 @@ def find_rootobject_types(path, domain):
         @rtype: generator
         '''
         potential_modules = os.listdir(path)
-        sys.path.append(path)
         for filename in potential_modules:
             filepath = os.path.join(path, filename)
             if filepath.endswith('.py') and os.path.isfile(filepath):

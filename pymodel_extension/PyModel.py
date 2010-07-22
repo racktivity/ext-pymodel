@@ -34,7 +34,7 @@
 # </License>
 
     
-import os
+import os, sys
 
 from pymonkey import q
 from pymodel import init
@@ -131,11 +131,16 @@ class PyModel(object):
                     
     def __initialize(self):        
         parentPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey', 'models')
-        
+        pymonkeyPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey')
+
+        if not pymonkeyPath in sys.path:
+            sys.path.append(pymonkeyPath)
+ 
         if not q.system.fs.exists(parentPath):
             q.system.fs.createDir(parentPath)
         
-        for subPath in os.listdir(parentPath):
+        for subPath in q.system.fs.listDirsInDir(parentPath):
+            subPath = q.system.fs.getBaseName(subPath)
             domainname = subPath
             specpath = q.system.fs.joinPaths(parentPath, subPath)
             self.importDomain(domainname, specpath)
