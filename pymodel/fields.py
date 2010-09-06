@@ -181,6 +181,8 @@ def TypedList(type_):
 
             if sequence:
                 for item in sequence:
+                    if isinstance(item, dict):
+                        item = type_.VALID_TYPE(**item)
                     if not isinstance(item, type_.VALID_TYPE):
                         raise TypeError('Only objects of type %s '
                                         'can be stored' % \
@@ -266,6 +268,8 @@ def TypedDict(type_):
                 for key, value in dict_.iteritems():
                     if not isinstance(key, basestring):
                         raise TypeError('Dictionary keys should be strings')
+                    if isinstance(value, dict):
+                        value = type_.VALID_TYPE(**item)
                     if not isinstance(value, type_.VALID_TYPE):
                         raise TypeError('Only objects of type %s '
                                         'can be stored' % \

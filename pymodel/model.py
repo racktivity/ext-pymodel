@@ -2,7 +2,7 @@ import logging
 import weakref
 import inspect
 
-from pymodel.fields import Field, GUID, String
+from pymodel.fields import Field, GUID, String, WrappedList
 
 logger = logging.getLogger('pymodel.model')
 
@@ -12,7 +12,9 @@ VersionField = GUID()
 VersionField.name = 'version'
 CreationDateField = String()
 CreationDateField.name = 'creationdate'
-DEFAULT_FIELDS = (GUIDField, VersionField, CreationDateField, )
+BaseVersionField = GUID()
+BaseVersionField.name = '_baseversion'
+DEFAULT_FIELDS = (GUIDField, VersionField, CreationDateField, BaseVersionField)
 
 class _PymodelModelAttribute(object):
     def __init__(self, name, attribute):
@@ -52,6 +54,8 @@ class ModelMeta(type):
                 'Model classes should have no explicit \'guid\' attribute'
         assert 'version' not in attrs, \
                 'Model classes should have no explicit \'version\' attribute'
+        assert '_baseversion' not in attrs, \
+                'Model classes should have no explicit \'_baseversion\' attribute'
         assert 'creationdate' not in attrs, \
                 'Model classes should have no explicit' \
                 'creationdate\' attribute'
@@ -125,6 +129,7 @@ class Model(object):
             d[attr.name] = getattr(self, attr.name)
 
         return str(d)
+        
 
     def __eq__(self, other):
         if self is other:
@@ -146,7 +151,6 @@ class Model(object):
             return hash(self.guid) if self.guid else object.__hash__(self)
 
         return hash((self.guid, self.version, ))
-
 
 class RootObjectModel(Model):
     __slots__ = tuple()
