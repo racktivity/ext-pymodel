@@ -109,6 +109,15 @@ def init(model_path, model_domain):
         if name in ROOTOBJECT_TYPES[model_domain]:
             raise RuntimeError('Duplicate root object type %s' % name)
         ROOTOBJECT_TYPES[model_domain][name] = type_
+
+def init_domain(model_path):
+    import os
+    for domain in os.listdir(model_path):
+        fullpath = os.path.join(model_path, domain)
+        if not os.path.isdir(fullpath):
+            continue
+        init(fullpath, domain)
+        
         
 # Set up binding to PyMonkey logging
 def _setup_pymonkey_logging():

@@ -51,6 +51,9 @@ from pymodel import ROOTOBJECT_TYPES
 class Domain(object):
     pass
 
+class Model(object):
+    pass
+
 class PyModelAccessor(object):
     
     def __init__(self, rootobject_type):
@@ -128,7 +131,20 @@ class PyModel(object):
         Returns the list of imported domain names
         '''
         return self._domains.keys()
-                    
+    
+    def getModel(self, path):
+        import pymodel.utils
+        model = Model()
+        for domain in q.system.fs.listDirsInDir(path):
+            domain_name = q.system.fs.getBaseName(domain)
+            types = list(pymodel.utils.find_rootobject_types(domain, domain_name))
+            domain_obj = Domain()
+            setattr(model, domain_name, domain_obj)
+            for type_ in types:
+                name = type_.__name__
+                setattr(domain_obj, name, PyModelAccessor(type_))
+        return model
+                        
     def __initialize(self):        
         parentPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey', 'models')
         pymonkeyPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey')
