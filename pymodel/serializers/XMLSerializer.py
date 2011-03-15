@@ -38,6 +38,9 @@ import pymodel.model
 from pymodel.fields import EmptyObject
 from pymonkey.baseclasses.BaseEnumeration import BaseEnumeration
 
+class XMLUnpicklingException:
+    pass
+
 def getType(obj):
     """ generates string representation of class of obj 
         discarding decoration """
@@ -170,19 +173,33 @@ def pickle(root, fabric, elementName="root"):
 
     node = fabric.createElement(elementName)
     typeStr = getType(root)
-    node.attributes["type"]=typeStr    
-    node.appendChild(fabric.createTextNode(str(root)))
+    node.attributes["type"]=typeStr
+    child = None
+    if isinstance(root, (list,dict)):
+        if len(root) == 0:
+            node.appendChild(fabric.createTextNode(""))
+        else:
+            if isinstance(root, dict):
+                pickleDictItems(root, node, fabric)
+            else:
+                pickleList(root, node, fabric)
+    else:
+        node.appendChild(fabric.createTextNode(str(root)))
+
     return node
 
-def pickleDictItems(root):
-    fabric = dom.Document()
-    node = fabric.createElement("root")
+def pickleList(root, parentnode, fabric):
+    for value in root:
+        tempnode = fabric.createElement("item")
+        tempnode.appendChild(pickle(value, fabric, "value"))
+        parentnode.appendChild(tempnode)
+
+def pickleDictItems(root, parentnode, fabric):
     for key, value in root.items():
         tempnode = fabric.createElement("item")
         tempnode.appendChild(pickle(key, fabric, "key"))
         tempnode.appendChild(pickle(value, fabric, "value"))
-        node.appendChild(tempnode)
-    return node
+        parentnode.appendChild(tempnode)
 
 def _getElementChilds(node, doLower = 1):
     """ returns list of (tagname, element) for all element childs of node """
@@ -198,8 +215,22 @@ def _getText(nodelist):
             rc = rc + node.data
     return rc.strip()
 
+def unpickleList(nodes):
+    l = list()
+    for node in nodes:
+        for name, element in _getElementChilds(node):
+            if name != "value":
+                raise XMLUnpicklingException()
+            l.append(unpickle(element))
+    return l
+
 def unpickle(node):
     typeName= node.attributes["type"].value
+    print typeName
+    if typeName == "list":
+        return unpickleList(node.childNodes)
+    elif typeName == "dict":
+        return unpickleDict(node)
     initValue = _getText(node.childNodes)
     value = eval("%s(%r)" % (typeName, initValue))
     return value
@@ -230,13 +261,15 @@ class XMLSerializer(object):
     @classmethod
     def serialize(cls, data):    
         data = object_to_dict(data)
-        #return pickle(root=data, fabric=dom.Document())
-        return pickleDictItems(data)
+        fabric = dom.Document()
+        node = fabric.createElement("root")
+        pickleDictItems(data, node, fabric)
+        return  node.toxml()
             
     @classmethod
     def deserialize(cls, type_, data):   
         object_ = type_()     
-        #data = unpickle(data)
+        data = dom.parseString(data).firstChild
         data = unpickleDict(data)
         dict_to_object(object_, data)
         return object_
