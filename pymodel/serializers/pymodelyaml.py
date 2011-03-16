@@ -37,7 +37,7 @@ import yaml
 
 import pymodel
 from pymodel.fields import EmptyObject
-from pymonkey.baseclasses.BaseEnumeration import BaseEnumeration
+from pylabs.baseclasses.BaseEnumeration import BaseEnumeration
 
 
 def handle_list(attr, value):

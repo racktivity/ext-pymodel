@@ -36,7 +36,7 @@
 import xml.dom.minidom as dom
 import pymodel.model
 from pymodel.fields import EmptyObject
-from pymonkey.baseclasses.BaseEnumeration import BaseEnumeration
+from pylabs.baseclasses.BaseEnumeration import BaseEnumeration
 
 class XMLUnpicklingException:
     pass

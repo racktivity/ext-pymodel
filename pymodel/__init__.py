@@ -120,7 +120,7 @@ def init_domain(model_path):
         
         
 # Set up binding to PyMonkey logging
-def _setup_pymonkey_logging():
+def _setup_pylabs_logging():
     '''Relay Pymodel log messages to PyMonkey logging if available
 
     Pymodel uses the standard Python *logging* module to perform logging. This
@@ -132,7 +132,7 @@ def _setup_pymonkey_logging():
     logger = logging.getLogger('pymodel')
     
     try:
-        from pymonkey import q
+        from pylabs import q
     except ImportError:
         logger.info('No PyMonkey support on this system')
         return
@@ -164,5 +164,5 @@ def _setup_pymonkey_logging():
     logger.setLevel(logging.DEBUG)
     logger.addHandler(pmlogger)
 
-#_setup_pymonkey_logging()
-#del _setup_pymonkey_logging
+#_setup_pylabs_logging()
+#del _setup_pylabs_logging

@@ -46,7 +46,7 @@ except:
 logger = logging.getLogger('pymodel.thrift')
 
 try:
-    from pymonkey.baseclasses import BaseEnumeration
+    from pylabs.baseclasses import BaseEnumeration
 except ImportError:
     logger.info('No PyMonkey Enumeration support')
     BaseEnumeration = None
