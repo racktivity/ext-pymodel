@@ -174,7 +174,6 @@ def pickle(root, fabric, elementName="root"):
     node = fabric.createElement(elementName)
     typeStr = getType(root)
     node.attributes["type"]=typeStr
-    child = None
     if isinstance(root, (list,dict)):
         if len(root) == 0:
             node.appendChild(fabric.createTextNode(""))
