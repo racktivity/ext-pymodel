@@ -40,10 +40,12 @@ class Field(object):
         self.kwargs = kwargs
 
     def __get__(self, obj, objtype=None):
+        if obj is None:
+           # Accessed through class, not object
+           return None
         try:
             return obj._pymodel_store[self.name]
         except KeyError:
-            #raise AttributeError
             return None
 
     def __set__(self, obj, value):
@@ -268,8 +270,6 @@ def TypedDict(type_):
                 for key, value in dict_.iteritems():
                     if not isinstance(key, basestring):
                         raise TypeError('Dictionary keys should be strings')
-                    if isinstance(value, dict):
-                        value = type_.VALID_TYPE(**item)
                     if not isinstance(value, type_.VALID_TYPE):
                         raise TypeError('Only objects of type %s '
                                         'can be stored' % \
