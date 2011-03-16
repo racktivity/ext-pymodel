@@ -34,19 +34,16 @@
 # </License>
 
     
-import os, sys
+import sys
 
-from pymonkey import q
+from pylabs import q
+
 from pymodel import init
-
 import pymodel.utils
-
 from pymodel.serializers import ThriftSerializer
 from pymodel.serializers import YamlSerializer
 from pymodel.serializers import XMLSerializer
 from pymodel.serializers import ThriftBase64Serializer
-
-from pymodel import ROOTOBJECT_TYPES
 
 class Domain(object):
     pass
@@ -54,7 +51,7 @@ class Domain(object):
 class Model(object):
     pass
 
-class PyModelAccessor(object):
+class PymodelAccessor(object):
     
     def __init__(self, rootobject_type):
         '''Initialize a new pymodel root object accessor
@@ -98,7 +95,7 @@ class PyModelAccessor(object):
     
 
 
-class PyModel(object):
+class PymodelExtension(object):
 
     __shared_state = {}
     
@@ -121,7 +118,7 @@ class PyModel(object):
         from pymodel import ROOTOBJECT_TYPES as types
         for type in types[domainname].itervalues():
             name = getattr(type, 'PYMODEL_TYPE_NAME', type.__name__.lower())
-            setattr(domain, name, PyModelAccessor(type))
+            setattr(domain, name, PymodelAccessor(type))
             
         setattr(self, domainname, domain)
         self._domains[domainname] = domain
@@ -133,7 +130,6 @@ class PyModel(object):
         return self._domains.keys()
     
     def getModel(self, path):
-        import pymodel.utils
         model = Model()
         for domain in q.system.fs.listDirsInDir(path):
             domain_name = q.system.fs.getBaseName(domain)
@@ -142,15 +138,15 @@ class PyModel(object):
             setattr(model, domain_name, domain_obj)
             for type_ in types:
                 name = type_.__name__
-                setattr(domain_obj, name, PyModelAccessor(type_))
+                setattr(domain_obj, name, PymodelAccessor(type_))
         return model
                         
     def __initialize(self):        
-        parentPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey', 'models')
-        pymonkeyPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pymonkey')
+        parentPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pylabs', 'models')
+        pylabsPath = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'pylabs')
 
-        if not pymonkeyPath in sys.path:
-            sys.path.append(pymonkeyPath)
+        if not pylabsPath in sys.path:
+            sys.path.append(pylabsPath)
  
         if not q.system.fs.exists(parentPath):
             q.system.fs.createDir(parentPath)
@@ -160,5 +156,3 @@ class PyModel(object):
             domainname = subPath
             specpath = q.system.fs.joinPaths(parentPath, subPath)
             self.importDomain(domainname, specpath)
-            
-            
