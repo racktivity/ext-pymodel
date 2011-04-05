@@ -40,12 +40,80 @@ import os
 import os.path
 import imp
 import new
+import random
 import logging
 import inspect
 
 from pymodel.model import RootObjectModel #pylint: disable-msg=E0611
 
 logger = logging.getLogger('pymodel.utils') #pylint: disable-msg=C0103
+
+def load_rootobject_types(path, package=None):
+    '''Find and load all root object types defined in modules in a given path
+
+    @param path: Folder containing the model modules
+    @type path: string
+
+    @return: Iterable of all root object types
+    @rtype: iterable
+    '''
+
+    logger.info('Loading RootObjectModel definitions in %s', path)
+
+    if not package:
+        num = 0
+
+        imp.acquire_lock()
+        try:
+            pymodel_module_name = 'sys'
+
+            while pymodel_module_name in sys.modules:
+                pymodel_module_name = 'pymodel._loader.m%d' % \
+                    random.randint(1, sys.maxint)
+
+            sys.modules[pymodel_module_name] = new.module(pymodel_module_name)
+        finally:
+            imp.release_lock()
+
+    else:
+        pymodel_module_name = package
+
+    def find_modules():
+        '''Find all module files in a given path
+
+        @return: Generator yielding all module paths
+        @rtype: generator
+        '''
+        potential_modules = os.listdir(path)
+
+        for filename in potential_modules:
+            filepath = os.path.join(path, filename)
+            if filepath.endswith('.py') and os.path.isfile(filepath):
+                yield filename[:-3], filepath
+
+    def load_modules():
+        '''Load a module from a given path
+
+        @return: Generator yielding all modules
+        @rtype: generator
+        '''
+        for module_name, module_path in find_modules():
+            logger.debug('Loading %s' % module_path)
+
+            modname = '%s.%s' % (pymodel_module_name, module_name)
+            assert modname not in sys.modules, '%s already loaded' % modname
+
+            if modname not in sys.modules:
+                yield imp.load_source(modname, module_path)
+
+    for module in load_modules():
+        for attrname in dir(module):
+            attr = getattr(module, attrname)
+            if inspect.isclass(attr) and \
+               issubclass(attr, RootObjectModel) and \
+               attr.__module__ == module.__name__: # Get around imports
+                logger.info('Found RootObjectModel \'%s\'' % attr.__name__)
+                yield attr
 
 def find_rootobject_types(path, domain):
     '''Find all root object types defined in any module in a given path
@@ -63,44 +131,14 @@ def find_rootobject_types(path, domain):
     logger.info('Looking up RootObjectModel definitions in %s' % path)
 
     pymodel_module_name = 'pymodel.%s._rootobjects' % domain
+
     if pymodel_module_name not in sys.modules:
         logger.debug('Creating fake %s module' % pymodel_module_name)
+
         mod = new.module(pymodel_module_name)
         sys.modules[pymodel_module_name] = mod
 
-    def find_modules():
-        '''Find all module files in a given path
-
-        @return: Generator yielding all module paths
-        @rtype: generator
-        '''
-        potential_modules = os.listdir(path)
-        for filename in potential_modules:
-            filepath = os.path.join(path, filename)
-            if filepath.endswith('.py') and os.path.isfile(filepath):
-                yield filename[:-3], filepath
-
-    def load_modules():
-        '''Load a module from a given path
-
-        @return: Generator yielding all modules
-        @rtype: generator
-        '''
-        for module_name, module_path in find_modules():
-            logger.debug('Loading %s' % module_path)
-            modname = '%s.%s' % (pymodel_module_name, module_name)
-            if modname not in sys.modules:
-                yield imp.load_source(modname, module_path)
-            #assert modname not in sys.modules, '%s already loaded' % modname
-
-    for module in load_modules():
-        for attrname in dir(module):
-            attr = getattr(module, attrname)
-            if inspect.isclass(attr) and \
-               issubclass(attr, RootObjectModel) and \
-               attr.__module__ == module.__name__: # Get around imports
-                logger.info('Found RootObjectModel \'%s\'' % attr.__name__)
-                yield attr
+    return load_rootobject_types(path, pymodel_module_name)
 
 
 def compare_content(a, b):

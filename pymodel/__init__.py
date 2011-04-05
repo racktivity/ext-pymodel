@@ -117,7 +117,22 @@ def init_domain(model_path):
         if not os.path.isdir(fullpath):
             continue
         init(fullpath, domain)
-        
+
+def load_models(model_path):
+    '''Load all models defined in modules in a given folder
+
+    @param model_path: Path to model module folder
+    @type model_path: string
+
+    @return: Iterable of all models
+    @rtype: iterable
+    '''
+
+    import pymodel.utils
+
+    return pymodel.utils.load_rootobject_types(model_path)
+
+
         
 # Set up binding to PyMonkey logging
 def _setup_pylabs_logging():
