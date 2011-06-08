@@ -79,6 +79,14 @@ try:
 except ImportError, e:
     logger.info('Unable to load YAML serializer: %s' % e)
 
+try:
+    from .pymodeldict import DictSerializer
+    logger.info('Loaded Dict serializer')
+    __all__.append('DictSerializer')
+    SERIALIZERS[DictSerializer.NAME] = DictSerializer
+except ImportError, e:
+    logger.info('Unable to load Dict serializer: %s' % e)
+
 
 try:
     from .XMLSerializer import XMLSerializer
