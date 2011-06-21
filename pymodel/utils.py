@@ -101,19 +101,26 @@ def load_rootobject_types(path, package=None):
             logger.debug('Loading %s' % module_path)
 
             modname = '%s.%s' % (pymodel_module_name, module_name)
-            assert modname not in sys.modules, '%s already loaded' % modname
+            assert sys.modules.get(modname) is None, '%s already loaded' % modname
 
             if modname not in sys.modules:
                 yield imp.load_source(modname, module_path)
 
-    for module in load_modules():
-        for attrname in dir(module):
-            attr = getattr(module, attrname)
-            if inspect.isclass(attr) and \
-               issubclass(attr, RootObjectModel) and \
-               attr.__module__ == module.__name__: # Get around imports
-                logger.info('Found RootObjectModel \'%s\'' % attr.__name__)
-                yield attr
+    syspath = sys.path
+    imp.acquire_lock()
+    try:
+        sys.path.append(path)
+        for module in load_modules():
+            for attrname in dir(module):
+                attr = getattr(module, attrname)
+                if inspect.isclass(attr) and \
+                   issubclass(attr, RootObjectModel) and \
+                   attr.__module__ == module.__name__: # Get around imports
+                    logger.info('Found RootObjectModel \'%s\'' % attr.__name__)
+                    yield attr
+    finally:
+        imp.release_lock()
+        sys.path = syspath
 
 def find_rootobject_types(path, domain):
     '''Find all root object types defined in any module in a given path
