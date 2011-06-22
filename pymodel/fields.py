@@ -294,6 +294,9 @@ def TypedDict(type_):
         def keys(self):
             return self._dict.keys()
 
+        def new(self, *args, **kwargs):
+            return type_.VALID_TYPE(*args, **kwargs)
+
         def __eq__(self, other):
             if other ==None:
                 return False
