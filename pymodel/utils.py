@@ -106,7 +106,7 @@ def load_rootobject_types(path, package=None):
             if modname not in sys.modules:
                 yield imp.load_source(modname, module_path)
 
-    syspath = sys.path
+    syspath = sys.path[:]
     imp.acquire_lock()
     try:
         sys.path.append(path)
