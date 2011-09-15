@@ -40,13 +40,16 @@ import os
 import os.path
 import imp
 import new
-import random
 import logging
 import inspect
+import hashlib
 
 from pymodel.model import RootObjectModel #pylint: disable-msg=E0611
 
 logger = logging.getLogger('pymodel.utils') #pylint: disable-msg=C0103
+
+def _get_module_name(path):
+    return 'pymodel._loader.%s' % hashlib.sha1(path).hexdigest()
 
 def load_rootobject_types(path, package=None):
     '''Find and load all root object types defined in modules in a given path
@@ -57,21 +60,14 @@ def load_rootobject_types(path, package=None):
     @return: Iterable of all root object types
     @rtype: iterable
     '''
-
     logger.info('Loading RootObjectModel definitions in %s', path)
 
     if not package:
-        num = 0
-
         imp.acquire_lock()
         try:
-            pymodel_module_name = 'sys'
-
-            while pymodel_module_name in sys.modules:
-                pymodel_module_name = 'pymodel._loader.m%d' % \
-                    random.randint(1, sys.maxint)
-
-            sys.modules[pymodel_module_name] = new.module(pymodel_module_name)
+            pymodel_module_name = _get_module_name(path)
+            if pymodel_module_name not in sys.modules:
+                sys.modules[pymodel_module_name] = new.module(pymodel_module_name)
         finally:
             imp.release_lock()
 
@@ -101,9 +97,11 @@ def load_rootobject_types(path, package=None):
             logger.debug('Loading %s' % module_path)
 
             modname = '%s.%s' % (pymodel_module_name, module_name)
-            assert sys.modules.get(modname) is None, '%s already loaded' % modname
-
-            if modname not in sys.modules:
+            if modname in sys.modules:
+                logger.debug('%s already loaded', modname)
+                yield sys.modules[modname]
+            else:
+                logger.debug('Loading %s from %s', modname, module_path)
                 yield imp.load_source(modname, module_path)
 
     syspath = sys.path[:]

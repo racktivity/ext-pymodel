@@ -93,12 +93,9 @@ def init(model_path, model_domain):
     @type model_domain: string    
     
     '''
-    import logging
-    logger = logging.getLogger('pymodel.init')
-    
     import pymodel.utils
 
-    types = list(pymodel.utils.find_rootobject_types(model_path, model_domain))
+    types = pymodel.utils.find_rootobject_types(model_path, model_domain)
     
     if not model_domain in ROOTOBJECT_TYPES.keys():
         ROOTOBJECT_TYPES[model_domain] = {}
@@ -127,9 +124,7 @@ def load_models(model_path):
     @return: Iterable of all models
     @rtype: iterable
     '''
-
     import pymodel.utils
-
     return pymodel.utils.load_rootobject_types(model_path)
 
 
@@ -178,6 +173,3 @@ def _setup_pylabs_logging():
     pmlogger = PyMonkeyLogger()
     logger.setLevel(logging.DEBUG)
     logger.addHandler(pmlogger)
-
-#_setup_pylabs_logging()
-#del _setup_pylabs_logging
