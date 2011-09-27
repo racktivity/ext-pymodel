@@ -36,6 +36,8 @@
 import pymodel
 from pymodel.fields import EmptyObject
 from pylabs.baseclasses.BaseEnumeration import BaseEnumeration
+from datetime import datetime
+import time
 
 
 def handle_list(attr, value):
@@ -71,7 +73,7 @@ TYPE_HANDLERS = {
     pymodel.List: handle_list,
     pymodel.Dict: handle_dict,
     pymodel.Object: lambda a, o: object_to_dict(o),
-    pymodel.DateTime: lambda a, o: o,
+    pymodel.DateTime: lambda a, o: time.mktime(o.timetuple()),
 }
 
 
@@ -134,7 +136,7 @@ TYPE_SET_HANDLERS = {
     pymodel.Dict: load_dict,
     pymodel.Object: lambda a, o: dict_to_object(a.type_(), o),
     pymodel.List: load_list,
-    pymodel.DateTime: lambda a, o:o,
+    pymodel.DateTime: lambda a, o:datetime.fromtimestamp(o),
 }
 
 def dict_to_object(object_, data):
