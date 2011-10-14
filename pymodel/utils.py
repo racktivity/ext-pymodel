@@ -61,6 +61,7 @@ def load_rootobject_types(path, package=None):
     @rtype: iterable
     '''
     logger.info('Loading RootObjectModel definitions in %s', path)
+    path = os.path.realpath(path)
 
     if not package:
         imp.acquire_lock()
