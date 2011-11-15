@@ -337,7 +337,7 @@ class ThriftObjectWrapper(object):
 
 class ThriftSerializer(object):
     NAME = 'thrift'
-    FORCE_NATIVE = True
+    FORCE_NATIVE = False
 
     @classmethod
     def serialize(cls, object_):
