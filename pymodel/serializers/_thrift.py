@@ -51,8 +51,10 @@ except ImportError:
     logger.info('No PyMonkey Enumeration support')
     BaseEnumeration = None
 
-from pymodel.model import DEFAULT_FIELDS
 import pymodel
+from pymodel import Model
+from pymodel.model import DEFAULT_FIELDS
+from pymodel.fields import EmptyObject, WrappedDict, WrappedList
 
 TYPE_SPEC_CACHE = dict()
 
@@ -301,28 +303,36 @@ def thrift_read(obj, spec, data, _force_native=False):
 
 
 def _native_type(obj):
-    from pymodel.fields import EmptyObject, WrappedDict, WrappedList
-    from pymodel import Model
+    # Warning
+    # Whenever changing the code below the following block, make sure the
+    # conditions in this block are altere appropriately
+    if not isinstance(obj, (EmptyObject, Model, WrappedList, WrappedDict)):
+        if BaseEnumeration:
+            if not isinstance(obj, BaseEnumeration):
+                return obj
+        else:
+            return obj
 
     if isinstance(obj, EmptyObject):
         return None
 
-    if isinstance(obj, Model):
+    elif isinstance(obj, Model):
         return ThriftObjectWrapper(obj)
 
-    if isinstance(obj, WrappedList):
+    elif isinstance(obj, WrappedList):
         return [_native_type(item) for item in obj]
 
-    if isinstance(obj, WrappedDict):
+    elif isinstance(obj, WrappedDict):
         return dict((key, _native_type(value)) \
                     for (key, value) in obj.iteritems())
 
-    if BaseEnumeration:
+    elif BaseEnumeration:
         if isinstance(obj, BaseEnumeration):
             #TODO Get rid of protected lookup
             return getattr(obj, '_pm_enumeration_name')
 
-    return obj
+    # LEAVE THIS LINE AS-IS
+    assert False, 'Not reached'
 
 
 class ThriftObjectWrapper(object):
