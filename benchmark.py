@@ -1,5 +1,10 @@
 import timeit
 
+try:
+    import profilestats
+except ImportError:
+    pass
+
 import pymodel
 import pymodel.serializers
 
@@ -46,5 +51,17 @@ def time(number):
         'run(s)', 'from __main__ import run, ThriftOptimized as s')
     print t.timeit(number=number)
 
+@profilestats.profile
+def profile(count):
+    for _ in xrange(count):
+        run(Thrift)
+
 if __name__ == '__main__':
     time(80000)
+
+    if profilestats:
+        runs = 1000
+        print 'Creating profile (%d runs)' % runs
+        profile(runs)
+    else:
+        print 'Unable to generate profile, install \'profilestats\''
