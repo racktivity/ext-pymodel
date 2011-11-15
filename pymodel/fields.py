@@ -33,15 +33,16 @@
 #
 # </License>
 
-import operator
 import uuid
+import operator
+
 class Field(object):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def __get__(self, obj, objtype=None):
         try:
-            return obj._pymodel_store[self.name]
+            return obj._pymodel_store[self._name]
         except KeyError:
             #raise AttributeError
             return None
