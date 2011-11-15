@@ -153,16 +153,6 @@ class Enumeration(String):
 
         String.__set__(self, obj, value)
 
-class DateTime(Float):
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __set__(self, obj, value):
-        from datetime import datetime as dttime
-        if not isinstance(value, dttime) and value is not None:
-            raise TypeError('Only objects of type Datetime can be assigned to this field')
-
-        obj._pymodel_store[self.name] = value
 
 class Container(Field):
     pass

@@ -79,7 +79,6 @@ TYPE_HANDLERS = {
     pymodel.List: handle_list,
     pymodel.Dict: handle_dict,
     pymodel.Object: lambda a, o: object_to_dict(o),
-    pymodel.DateTime: lambda a, o: o,
 }
 
 
@@ -142,7 +141,6 @@ TYPE_SET_HANDLERS = {
     pymodel.Dict: load_dict,
     pymodel.Object: lambda a, o: dict_to_object(a.type_(), o),
     pymodel.List: load_list,
-    pymodel.DateTime: lambda a, o:o,
 }
 
 def dict_to_object(object_, data):

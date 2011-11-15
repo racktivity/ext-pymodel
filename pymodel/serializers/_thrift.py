@@ -56,11 +56,6 @@ import pymodel
 
 TYPE_SPEC_CACHE = dict()
 
-# DATETIME type. Note that the value below needs to be modified keeping in mind the values ( for other types ) given in
-# 'thrift_python' q-package.( TType module ). The value below should not match any of the existing Thrift types.
-class LocTType:
-    DATETIME=19
-
 def struct_args(attr):
     return (attr.type_, generate_thrift_spec(attr.type_.PYMODEL_MODEL_INFO))
 
@@ -85,7 +80,6 @@ FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.Dict: dict_args,
     pymodel.List: list_args,
     pymodel.Enumeration: lambda o: None,
-    pymodel.DateTime:lambda o: None,
 }
 
 FIELD_TYPE_THRIFT_TYPE_MAP = {
@@ -98,7 +92,6 @@ FIELD_TYPE_THRIFT_TYPE_MAP = {
     pymodel.Dict: lambda o: TType.MAP,
     pymodel.List: lambda o: TType.LIST,
     pymodel.Enumeration: lambda o: TType.STRING,
-    pymodel.DateTime:lambda o: LocTType.DATETIME,
 }
 
 def generate_thrift_spec(typeinfo):
@@ -157,17 +150,7 @@ WRITE_TYPE_HANDLERS = {
     TType.STRUCT: lambda data, prot, info: _write_struct(data, prot, info),
     TType.LIST: lambda data, prot, info: _write_list(data, prot, info),
     TType.MAP: lambda data, prot, info: _write_map(data, prot, info),
-    LocTType.DATETIME:lambda data,prot,info:_write_dateTime(data,prot,info),
 }
-
-def _write_dateTime(data,prot,info):
-    import time;
-    list=(data.year,data.month,data.day,data.hour,data.minute,data.second,data.microsecond)
-    data=list
-    prot.writeListBegin(TType.LIST, len(data))
-    for item in data:
-        prot.writeI32(item)
-    prot.writeListEnd()
 
 def _write_map(data, prot, info):
     assert info[0] == TType.STRING, 'Only string keys supported'
@@ -232,19 +215,7 @@ READ_TYPE_HANDLERS = {
     TType.STRUCT: lambda prot, info: _read_struct(prot, info),
     TType.LIST: lambda prot, info: _read_list(prot, info),
     TType.MAP: lambda prot, info: _read_map(prot, info),
-    LocTType.DATETIME: lambda prot,info: _read_datetime(prot,info),
 }
-
-def _read_datetime(prot,info):
-    obj = list()
-    type_, size = prot.readListBegin()
-    for i in xrange(size):
-        item =prot.readI32()
-        obj.append(item)
-    prot.readListEnd()
-    import datetime
-    return datetime.datetime(obj[0],obj[1],obj[2],obj[3],obj[4],obj[5],obj[6])
-
 
 def _read_map(prot, info):
     obj = dict()
