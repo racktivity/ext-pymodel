@@ -26,12 +26,18 @@ class _PymodelModelInfo(object):
         self.type = None
         self.name = name
 
-        self.read_attributes(attrs)
+        self.attributes = self.read_attributes(attrs)
+        self.defaults = self.read_defaults(self.attributes)
 
     def read_attributes(self, attrs):
         logger.debug('Creating attribute info for %s' % self.name)
-        self.attributes = tuple(_PymodelModelAttribute(*info) for info in
+        return tuple(_PymodelModelAttribute(*info) for info in
                 attrs.iteritems() if isinstance(info[1], Field))
+
+    def read_defaults(self, attrs):
+        return dict((attr.name, attr.attribute.kwargs['default'])
+            for attr in attrs
+            if 'default' in attr.attribute.kwargs)
 
     def __str__(self):
         return 'Pymodel model info for %s' % self.name
@@ -112,7 +118,7 @@ class Model(object):
     PYMODEL_MODEL_INFO = None
 
     def __init__(self, **kwargs):
-        self._pymodel_store = dict()
+        self._pymodel_store = self.PYMODEL_MODEL_INFO.defaults.copy()
 
         attribute_names = set(attr.name for attr in
                 self.PYMODEL_MODEL_INFO.attributes)
