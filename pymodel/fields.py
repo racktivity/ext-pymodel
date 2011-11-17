@@ -96,10 +96,17 @@ def _ObjectHelper(type_):
 
     return _Helper()
 
-class Object(Field, ExposedField):
+class NoDefaultMixin(object):
+    def __init__(self, *args, **kwargs):
+        if 'default' in kwargs:
+            raise TypeError('Invalid keyword argument \'default\'')
+
+        super(NoDefaultMixin, self).__init__(*args, **kwargs)
+
+class Object(NoDefaultMixin, Field, ExposedField):
     def __init__(self, type_, **kwargs):
         self.type_ = type_
-        Field.__init__(self, **kwargs)
+        super(Object, self).__init__(**kwargs)
         self.helper = _ObjectHelper(self.type_)
 
     def __get__(self, obj, objtype=None):
@@ -163,7 +170,6 @@ class SimpleContainer(Container):
         self.type_ = type_
         Container.__init__(self, **kwargs)
 
-
 class WrappedList: pass
 def TypedList(type_):
     class _List(object, WrappedList):
@@ -221,9 +227,9 @@ def TypedList(type_):
 
     return _List
 
-class List(SimpleContainer, ExposedField):
+class List(NoDefaultMixin, SimpleContainer, ExposedField):
     def __init__(self, type_, **kwargs):
-        SimpleContainer.__init__(self, type_, **kwargs)
+        super(List, self).__init__(type_, **kwargs)
         self.listtype = TypedList(type_)
 
     def __get__(self, obj, objtype=None):
@@ -304,9 +310,9 @@ def TypedDict(type_):
     return _Dict
 
 
-class Dict(SimpleContainer, ExposedField):
+class Dict(NoDefaultMixin, SimpleContainer, ExposedField):
     def __init__(self, type_, **kwargs):
-        SimpleContainer.__init__(self, type_, **kwargs)
+        super(Dict, self).__init__(type_, **kwargs)
         self.dicttype = TypedDict(type_)
 
     def __get__(self, obj, objtype=None):
