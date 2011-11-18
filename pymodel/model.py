@@ -1,10 +1,10 @@
+import inspect
 import logging
 import weakref
-import inspect
 
-from pymodel.fields import Field, GUID, String, WrappedList
+from pymodel.fields import Field, GUID, String
 
-logger = logging.getLogger('pymodel.model')
+LOGGER = logging.getLogger(__name__)
 
 GUIDField = GUID()
 GUIDField.name = 'guid'
@@ -30,7 +30,7 @@ class _PymodelModelInfo(object):
         self.defaults = self.read_defaults(self.attributes)
 
     def read_attributes(self, attrs):
-        logger.debug('Creating attribute info for %s' % self.name)
+        LOGGER.debug('Creating attribute info for %s' % self.name)
         return tuple(_PymodelModelAttribute(*info) for info in
                 attrs.iteritems() if isinstance(info[1], Field))
 
@@ -45,7 +45,7 @@ class _PymodelModelInfo(object):
 
 class ModelMeta(type):
     def __new__(cls, name, bases, attrs, allow_slots=False):
-        logger.info('Generating model type %s' % name)
+        LOGGER.info('Generating model type %s' % name)
         try:
             Model
             RootObjectModel
@@ -137,7 +137,6 @@ class Model(object):
             d[attr.name] = getattr(self, attr.name)
 
         return str(d)
-        
 
     def __eq__(self, other):
         if self is other:
