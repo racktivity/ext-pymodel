@@ -90,7 +90,9 @@ class ModelMeta(type):
 
         # Calculate and set __slots__ - see 'Datamodel' in the Python
         # language reference
-        slots = ['_pymodel_store', ]
+        # '_sa_instance_state' is something we need for SQLAlchemy ORM
+        # compatibilty (see pymodel.orm)
+        slots = ['_pymodel_store', '__weakref__', '_sa_instance_state', ]
         for attrname, attr in attrs.iteritems():
             if isinstance(attr, Field):
                 slots.append(attrname)
