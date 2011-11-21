@@ -36,67 +36,133 @@
 '''Basic testing script for `pymodel.orm`'''
 
 import uuid
+import unittest
 
 import sqlalchemy
 
 import pymodel
 import pymodel.orm
+import pymodel.serializers
 
-class Address(pymodel.Model):
-    street = pymodel.String(thrift_id=1)
-    number = pymodel.String(thrift_id=2)
-    postal_code = pymodel.Integer(thrift_id=3)
-    city = pymodel.String(thrift_id=4)
-    country = pymodel.String(thrift_id=5)
+class TestORM(unittest.TestCase):
+    @staticmethod
+    def _get_session():
+        conn = sqlalchemy.create_engine('sqlite://')
+        conn.echo = True
 
-class User(pymodel.RootObjectModel):
-    first_name = pymodel.String(thrift_id=1)
-    last_name = pymodel.String(thrift_id=2)
-    age = pymodel.Integer(thrift_id=3)
-    f = pymodel.Float(thrift_id=4)
-    b = pymodel.Boolean(thrift_id=5)
+        SessionMaker = sqlalchemy.orm.sessionmaker(bind=conn)
+        session = SessionMaker()
 
-    address = pymodel.Object(Address, thrift_id=6)
+        return conn, session
 
+    @staticmethod
+    def _get_models():
+        class Address(pymodel.Model):
+            street = pymodel.String(thrift_id=1)
+            number = pymodel.Integer(thrift_id=2)
+            postal_code = pymodel.Integer(thrift_id=3)
+            city = pymodel.String(thrift_id=4)
+            country = pymodel.String(thrift_id=5)
 
-tables = pymodel.orm.register(User)
+        class User(pymodel.RootObjectModel):
+            first_name = pymodel.String(thrift_id=1)
+            last_name = pymodel.String(thrift_id=2)
+            age = pymodel.Integer(thrift_id=3)
+            f = pymodel.Float(thrift_id=4)
+            b = pymodel.Boolean(thrift_id=5)
+            address = pymodel.Object(Address, thrift_id=6)
 
-conn = sqlalchemy.create_engine('sqlite://')
-conn.echo = True
-SessionMaker = sqlalchemy.orm.sessionmaker(bind=conn)
-session = SessionMaker()
+        return User, Address
 
-print session.query(User).filter(User.age==26)
+    def test_register(self):
+        User, _ = self._get_models()
+        c = pymodel.orm.Context()
 
-for table in tables:
-    table.create(conn, checkfirst=True)
+        tables = c.register(User)
 
-addr = Address(street='Main Street', number=1, postal_code=9000,
-    city='Capital', country='Belgium')
-user = User(
-    first_name='Nicolas', last_name='T.', age=26, f=3.1415, b=True,
-    address=addr)
-user.guid = str(uuid.uuid4())
-user._baseversion = str(uuid.uuid4())
+        self.assertEqual(len(tables), 2)
 
+        _, s = self._get_session()
+        s.query(User).filter(User.age == 26)
 
-session.add(user)
-session.commit()
+    def test_create_tables(self):
+        User, _ = self._get_models()
 
-for u in session.query(User) \
-    .filter(User.age >= 20) \
-    .filter(User.age < 30) \
-    .filter(User.last_name.like('T%')) \
-    .all():
-    print u
-    print u.first_name
-    print u.address.street
+        c = pymodel.orm.Context()
+        tables = c.register(User)
 
-    session.delete(u)
+        conn, _ = self._get_session()
+        map(lambda t: t.create(conn), tables)
 
-session.commit()
+    def test_insert(self):
+        User, Address = self._get_models()
 
-import base64
-from pymodel.serializers import ThriftSerializer
+        c = pymodel.orm.Context()
+        tables = c.register(User)
 
-print base64.encodestring(u.serialize(ThriftSerializer))
+        conn, s = self._get_session()
+        map(lambda t: t.create(conn), tables)
+
+        addr = Address(street='Main Street', number=1,
+            postal_code=9000, city='Capital', country='Belgium')
+        user = User(
+            first_name='Nicolas', last_name='T.', age=26, f=3.1415, b=True,
+            address=addr)
+
+        user.guid = str(uuid.uuid4())
+
+        s.add(user)
+        s.commit()
+
+    def test_query(self):
+        User, Address = self._get_models()
+
+        c = pymodel.orm.Context()
+        tables = c.register(User)
+
+        conn, s = self._get_session()
+        map(lambda t: t.create(conn), tables)
+
+        addr = Address(street='Main Street', number=1,
+            postal_code=9000, city='Capital', country='Belgium')
+        user = User(
+            first_name='Nicolas', last_name='T.', age=26, f=3.1415, b=True,
+            address=addr)
+
+        user.guid = str(uuid.uuid4())
+
+        s.add(user)
+        s.commit()
+
+        for u in s.query(User) \
+            .filter(User.age >= 20) \
+            .filter(User.age < 30) \
+            .filter(User.last_name.like('T%')) \
+            .all():
+
+            self.assertEqual(u.first_name, 'Nicolas')
+            self.assertEqual(u.age, 26)
+            self.assertEqual(u.address.country, 'Belgium')
+
+            s.delete(u)
+
+    def test_serialization(self):
+        User, Address = self._get_models()
+
+        c = pymodel.orm.Context()
+        c.register(User)
+
+        addr = Address(street='Main Street', number=1,
+            postal_code=9000, city='Capital', country='Belgium')
+        user = User(
+            first_name='Nicolas', last_name='T.', age=26, f=3.1415, b=True,
+            address=addr)
+
+        user.guid = str(uuid.uuid4())
+        user.version = str(uuid.uuid4())
+
+        serializer = pymodel.serializers.SERIALIZERS['_ThriftNative']
+        data = user.serialize(serializer)
+        user_ = User.deserialize(serializer, data)
+
+        self.assertEqual(user_, user)

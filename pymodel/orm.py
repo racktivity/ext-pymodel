@@ -41,6 +41,7 @@ SQLAlchemy_ ORM mapper.
 '''
 
 import logging
+import operator
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -58,7 +59,7 @@ def patch_sqlalchemy():
         '''Patched version of sqlalchemy.orm.attributes.instance_dict'''
 
         if isinstance(obj, pymodel.Model):
-            return obj._pymodel_store
+            return obj._pymodel_store #pylint: disable-msg=W0212
         else:
             return obj.__dict__
 
@@ -67,7 +68,14 @@ def patch_sqlalchemy():
 patch_sqlalchemy()
 del patch_sqlalchemy
 
-_metadata = sqlalchemy.MetaData()
+# Make pylint happy
+if False:
+    pymodel.String = object
+    pymodel.GUID = object
+    pymodel.Integer = object
+    pymodel.Float = object
+    pymodel.Boolean = object
+    pymodel.Object = object
 
 _ATTR_COL_MAP = {
     pymodel.String: sqlalchemy.Text(),
@@ -78,15 +86,66 @@ _ATTR_COL_MAP = {
     # pymodel.Enumeration: sqlalchemy.Text(),
 }
 
-def _map_table(type_):
+class Context(object):
+    '''Context used by the SQLAlchemy ORM glue
+
+    An instance of this should be used to group related PyModel models when
+    being registered. These will share a `sqlalchemy.MetaData` instance.
+    '''
+
+    def __init__(self, metadata=None):
+        '''Initialize a new `Context` instance
+
+        A `sqlalchemy.MetaData` instance can be provided to be used as metadata
+        for this context. If no metadata instance is provided, a new one will
+        be created and used.
+
+        :param metadata: Optional metadata instance to use
+        :type metadata: `sqlalchemy.MetaData`
+        '''
+
+        self._metadata = metadata if metadata is not None \
+            else sqlalchemy.MetaData()
+
+    def register(self, type_):
+        '''Register a given root object model type with the SQLAlchemy ORM
+
+        This procedure registers a given `pymodel.RootObjectModel` subtype with
+        the SQLAlchemy ORM subsystem, and creates tables and mappings for any
+        type referred to, e.g. when using `pymodel.Object` fields.
+
+        It returns an iterable of the generated tables, so these can be created
+        in a database system by client code.
+
+        :param type_: Root object type to register
+        :type type_: subclass of `pymodel.RootObjectModel`
+        :return: Generated tables
+        :rtype: iterable of `sqlalchemy.Table`
+        '''
+
+        if not issubclass(type_, pymodel.RootObjectModel):
+            raise TypeError(
+                'Only pymodel.RootObjectModel types can be registered')
+
+        LOGGER.info('Registering type %s' % type_.PYMODEL_MODEL_INFO.name)
+
+        return _map_table(self._metadata, type_)
+
+    metadata = property(fget=operator.attrgetter('_metadata'),
+        doc='Retrieve the `sqlalchemy.MetaData` instance used by this context')
+
+
+def _map_table(metadata, type_):
     '''Create a mapping for the given PyModel model type
 
-    This procedure creates `sqlalchemy.Table` instances, based on metadata found
-    in the PyModel metadata of the given `type_`. This table, as well as any
-    table referred to (e.g. when using `pymodel.Object` fields) is registered
-    with the SQLAlchemy mapper, and returned, so client code can generate the
-    database tables if required.
+    This procedure creates `sqlalchemy.Table` instances, based on metadata
+    found in the PyModel metadata of the given `type_`. This table, as well as
+    any table referred to (e.g. when using `pymodel.Object` fields) is
+    registered with the SQLAlchemy mapper, and returned, so client code can
+    generate the database tables if required.
 
+    :param metadata: SQLAlchemy metadata object to work with
+    :type metadata: `sqlalchemy.MetaData`
     :param type_: Type to map
     :type type_: subclass of `pymodel.Model`
 
@@ -101,7 +160,7 @@ def _map_table(type_):
 
     tables = []
 
-    table = sqlalchemy.Table(name, _metadata)
+    table = sqlalchemy.Table(name, metadata)
 
     is_rootobject = issubclass(type_, pymodel.RootObjectModel)
 
@@ -123,7 +182,7 @@ def _map_table(type_):
 
             table.append_column(col)
         else:
-            sub = _map_table(attr.attribute.type_)
+            sub = _map_table(metadata, attr.attribute.type_)
             tables.extend(sub)
 
             sub_name = attr_.type_.PYMODEL_MODEL_INFO.name
@@ -145,25 +204,4 @@ def _map_table(type_):
 
     return tuple(tables)
 
-def register(type_):
-    '''Register a given root object model type with the SQLAlchemy ORM
 
-    This procedure registers a given `pymodel.RootObjectModel` subtype with the
-    SQLAlchemy ORM subsystem, and creates tables and mappings for any type
-    referred to, e.g. when using `pymodel.Object` fields.
-
-    It returns an iterable of the generated tables, so these can be created in a
-    database system by client code.
-
-    :param type_: Root object type to register
-    :type type_: subclass of `pymodel.RootObjectModel`
-    :return: Generated tables
-    :rtype: iterable of `sqlalchemy.Table`
-    '''
-
-    if not issubclass(type_, pymodel.RootObjectModel):
-        raise TypeError('Only pymodel.RootObjectModel types can be registered')
-
-    LOGGER.info('Registering type %s' % type_.PYMODEL_MODEL_INFO.name)
-
-    return _map_table(type_)
