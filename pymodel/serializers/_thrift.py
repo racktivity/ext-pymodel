@@ -339,9 +339,15 @@ def _native_type(obj):
 
 id_ = lambda v: v
 
+MICROSECOND_FACTOR = 10 ** 6
+
 ATTRIBUTE_TRANSFORMATION_MAP = {
-    pymodel.DateTime: (lambda d: None if not d else time.mktime(d.timetuple()), \
-        lambda t: None if t is None else datetime.datetime.fromtimestamp(t)),
+    pymodel.DateTime: (lambda d: None if not d \
+            else time.mktime( \
+                d.timetuple()) * MICROSECOND_FACTOR + d.microsecond, \
+        lambda t: None if t is None 
+            else datetime.datetime.fromtimestamp(float(t) / 10 ** 6) \
+    ),
 }
 
 class ThriftObjectWrapper(object):
