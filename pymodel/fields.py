@@ -34,6 +34,7 @@
 # </License>
 
 import uuid
+import datetime
 import operator
 
 class Field(object):
@@ -83,6 +84,9 @@ class GUID(String):
 
 class Boolean(Field, ExposedField):
     VALID_TYPE = bool
+
+class DateTime(Field, ExposedField):
+    VALID_TYPE = datetime.datetime
 
 class EmptyObject: pass
 

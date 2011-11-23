@@ -33,7 +33,9 @@
 #
 # </License>
 
+import time
 import logging
+import datetime
 
 from thrift.Thrift import TType
 from thrift.transport import TTransport
@@ -70,8 +72,6 @@ def list_args(attr):
     return (FIELD_TYPE_THRIFT_TYPE_MAP[type(attr.type_)](attr.type_),
             FIELD_TYPE_ATTR_ARGS_MAP[type(attr.type_)](attr.type_))
 
-
-
 FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.GUID: lambda o: None,
     pymodel.String: lambda o: None,
@@ -82,6 +82,7 @@ FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.Dict: dict_args,
     pymodel.List: list_args,
     pymodel.Enumeration: lambda o: None,
+    pymodel.DateTime: lambda o: None,
 }
 
 FIELD_TYPE_THRIFT_TYPE_MAP = {
@@ -94,6 +95,7 @@ FIELD_TYPE_THRIFT_TYPE_MAP = {
     pymodel.Dict: lambda o: TType.MAP,
     pymodel.List: lambda o: TType.LIST,
     pymodel.Enumeration: lambda o: TType.STRING,
+    pymodel.DateTime: lambda o: TType.I64,
 }
 
 def generate_thrift_spec(typeinfo):
@@ -180,6 +182,7 @@ def _write_struct(data, prot, info):
         value = getattr(data, fname)
         if not value and value is not False and not value == 0:
             continue
+
         prot.writeFieldBegin(fname, ftype, fid)
         WRITE_TYPE_HANDLERS[ftype](value, prot, finfo)
         prot.writeFieldEnd()
@@ -334,15 +337,42 @@ def _native_type(obj):
     # LEAVE THIS LINE AS-IS
     assert False, 'Not reached'
 
+id_ = lambda v: v
+
+MICROSECOND_FACTOR = 10 ** 6
+
+ATTRIBUTE_TRANSFORMATION_MAP = {
+    pymodel.DateTime: (
+        lambda d: None if not d
+            else time.mktime(
+                d.timetuple()) * MICROSECOND_FACTOR + d.microsecond,
+        lambda t: None if t is None
+            else datetime.datetime.fromtimestamp(float(t) / 10 ** 6)
+    ),
+}
 
 class ThriftObjectWrapper(object):
     def __init__(self, object_):
         self._object = object_
 
+        self._attribute_types = dict((attr.name, type(attr.attribute))
+            for attr in object_.PYMODEL_MODEL_INFO.attributes)
+
     def __getattr__(self, name):
         attr = getattr(self._object, name)
 
-        return _native_type(attr)
+        ser, _ = ATTRIBUTE_TRANSFORMATION_MAP.get(self._attribute_types[name], (id_, id_))
+
+        return _native_type(ser(attr))
+
+    def __setattr__(self, name, value):
+        if name in ('_object', '_attribute_types'):
+            object.__setattr__(self, name, value)
+            return
+
+        _, des = ATTRIBUTE_TRANSFORMATION_MAP.get(self._attribute_types[name], (id_, id_))
+
+        setattr(self._object, name, des(value))
 
 
 class ThriftSerializer(object):
@@ -363,8 +393,9 @@ class ThriftSerializer(object):
         model_info = type_.PYMODEL_MODEL_INFO
         spec = generate_thrift_spec(model_info)
         object_ = type_()
-        thrift_read(object_, spec, data, _force_native=cls.FORCE_NATIVE)
-        return object_
+        wrapper = ThriftObjectWrapper(object_)
+        thrift_read(wrapper, spec, data, _force_native=cls.FORCE_NATIVE)
+        return wrapper._object
 
 
 if fastbinary:
