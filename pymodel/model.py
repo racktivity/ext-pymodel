@@ -151,7 +151,11 @@ class Model(object):
         return self.guid == other.guid and self.version == other.version
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        is_eq = self.__eq__(other)
+        if is_eq is NotImplemented:
+            return NotImplemented
+        else:
+            return not is_eq
 
     def __hash__(self):
         if not self.version:
