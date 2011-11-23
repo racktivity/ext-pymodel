@@ -1,5 +1,6 @@
 import timeit
 import datetime
+
 try:
     import profilestats
 except ImportError:
