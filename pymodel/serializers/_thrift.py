@@ -354,7 +354,7 @@ class ThriftObjectWrapper(object):
     def __getattr__(self, name):
         attr = getattr(self._object, name)
 
-        ser, _ = ATTRIBUTE_TRANSFORMATION_MAP.get(self._attribute_types[name], (id_, id))
+        ser, _ = ATTRIBUTE_TRANSFORMATION_MAP.get(self._attribute_types[name], (id_, id_))
 
         return _native_type(ser(attr))
 
