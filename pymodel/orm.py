@@ -46,6 +46,14 @@ import operator
 import sqlalchemy
 import sqlalchemy.orm
 
+HAS_CREATE_PROXIED_ATTRIBUTE = False
+HAS_PROXIED_ATTRIBUTE_FACTORY = False
+
+if hasattr(sqlalchemy.orm.attributes, "create_proxied_attribute"):
+    HAS_CREATE_PROXIED_ATTRIBUTE = True
+elif hasattr(sqlalchemy.orm.attributes, "proxied_attribute_factory"):
+    HAS_PROXIED_ATTRIBUTE_FACTORY = True
+
 import pymodel
 
 LOGGER = logging.getLogger(__name__)
@@ -204,8 +212,15 @@ def _map_table(metadata, type_):
             rel = sqlalchemy.orm.relationship(attr_.type_, uselist=False)
             properties[attr_name] = rel
 
-        prop = sqlalchemy.orm.attributes.create_proxied_attribute(attr)
-        prop_inst = prop(type_, attr_name, attr, None)
+        if HAS_PROXIED_ATTRIBUTE_FACTORY:
+            prop = sqlalchemy.orm.attributes.proxied_attribute_factory(attr)
+            prop_inst = prop(attr_name, attr, None, None)
+        elif HAS_CREATE_PROXIED_ATTRIBUTE:
+            prop = sqlalchemy.orm.attributes.create_proxied_attribute(attr)
+            prop_inst = prop(type_, attr_name, attr, None)
+        else:
+            raise NotImplementedError
+
         delattr(type_, attr_name)
         setattr(type_, attr_name, prop_inst)
 
