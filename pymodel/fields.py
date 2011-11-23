@@ -34,8 +34,8 @@
 # </License>
 
 import uuid
-import operator
 import datetime
+import operator
 
 class Field(object):
     def __init__(self, **kwargs):
