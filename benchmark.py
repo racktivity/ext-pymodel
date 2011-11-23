@@ -37,6 +37,7 @@ def run(s):
     assert u2.last_name == u.last_name
     assert u2.age == u.age
     assert u2.email == u.email
+    assert u2.dob.ctime() == u.dob.ctime()
 
 
 def time(number):
