@@ -59,6 +59,17 @@ def patch_sqlalchemy():
         '''Patched version of sqlalchemy.orm.attributes.instance_dict'''
 
         if isinstance(obj, pymodel.Model):
+            # HACK!
+            # Somehow we get in this code path, without the 'obj' constructor
+            # being called before (the instance has no '_pymodel_store'
+            # attribute, which is set in the pymodel.model.Model constructor
+            # only). This seems to be SQLAlchemy-related. In case this happens,
+            # we brute-force constructor execution. Ugly, dirty, terrible, but
+            # no way around for now.
+            # See test.test_orm:TestORM.test_not_initialized
+            if not hasattr(obj, '_pymodel_store'):
+                type(obj).__init__(obj)
+
             return obj._pymodel_store #pylint: disable-msg=W0212
         else:
             return obj.__dict__

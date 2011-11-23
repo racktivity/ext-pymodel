@@ -166,3 +166,46 @@ class TestORM(unittest.TestCase):
         user_ = User.deserialize(serializer, data)
 
         self.assertEqual(user_, user)
+
+    def test_not_initialized(self):
+        class A(pymodel.Model):
+            i = pymodel.Integer(thrift_id=1)
+
+        class S(pymodel.RootObjectModel):
+            i = pymodel.Integer(thrift_id=1)
+            a = pymodel.Object(A, thrift_id=2)
+
+        c = pymodel.orm.Context()
+        tables = c.register(S)
+
+        conn, session = self._get_session()
+        map(lambda t: t.create(conn), tables)
+
+        s = S()
+        i = 16
+        s.guid = str(uuid.uuid4())
+        a = A()
+
+        a.i = i
+        s.a = a
+        s.i = i
+
+        session.add(s)
+        session.commit()
+
+        s = S()
+        s.guid = str(uuid.uuid4())
+        s.a = a
+        s.i = i
+
+        session.add(s)
+        session.commit()
+
+        count = 0
+        for s_ in session.query(S).join(A).filter(A.i == 16).all():
+            self.assertEqual(s_.a.i, i)
+            self.assertEqual(s_.i, i)
+
+            count += 1
+
+        self.assertEqual(count, 2)
