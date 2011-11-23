@@ -33,6 +33,8 @@
 #
 # </License>
 
+import datetime
+import time
 import logging
 
 from thrift.Thrift import TType
@@ -70,8 +72,6 @@ def list_args(attr):
     return (FIELD_TYPE_THRIFT_TYPE_MAP[type(attr.type_)](attr.type_),
             FIELD_TYPE_ATTR_ARGS_MAP[type(attr.type_)](attr.type_))
 
-
-
 FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.GUID: lambda o: None,
     pymodel.String: lambda o: None,
@@ -82,6 +82,7 @@ FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.Dict: dict_args,
     pymodel.List: list_args,
     pymodel.Enumeration: lambda o: None,
+    pymodel.DateTime: lambda o: None,
 }
 
 FIELD_TYPE_THRIFT_TYPE_MAP = {
@@ -94,6 +95,7 @@ FIELD_TYPE_THRIFT_TYPE_MAP = {
     pymodel.Dict: lambda o: TType.MAP,
     pymodel.List: lambda o: TType.LIST,
     pymodel.Enumeration: lambda o: TType.STRING,
+    pymodel.DateTime: lambda o: TType.I64,
 }
 
 def generate_thrift_spec(typeinfo):
@@ -180,6 +182,7 @@ def _write_struct(data, prot, info):
         value = getattr(data, fname)
         if not value and value is not False and not value == 0:
             continue
+
         prot.writeFieldBegin(fname, ftype, fid)
         WRITE_TYPE_HANDLERS[ftype](value, prot, finfo)
         prot.writeFieldEnd()
@@ -252,7 +255,6 @@ def _read_struct(protocol, spec, obj=None):
     obj = obj or spec[0]()
 
     struct_info = spec[1]
-
     protocol.readStructBegin()
 
     while True:
@@ -334,15 +336,66 @@ def _native_type(obj):
     # LEAVE THIS LINE AS-IS
     assert False, 'Not reached'
 
+def _serialize_datetime(dt):
+    if dt: return time.mktime(dt.timetuple())
 
-class ThriftObjectWrapper(object):
+def _deserialize_datetime(d):
+    if d: return datetime.datetime.fromtimestamp(d)
+
+ATTRIBUTE_SERIALIZER_MAP = {
+    pymodel.GUID: lambda o: o,
+    pymodel.String: lambda o: o,
+    pymodel.Integer: lambda o: o,
+    pymodel.Boolean: lambda o: o,
+    pymodel.Object: lambda o: o,
+    pymodel.Float: lambda o: o,
+    pymodel.Dict: lambda o: o,
+    pymodel.List: lambda o: o,
+    pymodel.Enumeration: lambda o: o,
+    pymodel.DateTime: _serialize_datetime,
+}
+
+ATTRIBUTE_DESERIALIZER_MAP = {
+    pymodel.GUID: lambda o: o,
+    pymodel.String: lambda o: o,
+    pymodel.Integer: lambda o: o,
+    pymodel.Boolean: lambda o: o,
+    pymodel.Object: lambda o: o,
+    pymodel.Float: lambda o: o,
+    pymodel.Dict: lambda o: o,
+    pymodel.List: lambda o: o, 
+    pymodel.Enumeration: lambda o: o,
+    pymodel.DateTime: _deserialize_datetime,
+}
+
+class ThriftObjectWrapperBase(object):
     def __init__(self, object_):
         self._object = object_
+
+        self._attribute_types = dict([(attr.name, type(attr.attribute))
+            for attr in object_.PYMODEL_MODEL_INFO.attributes])
+
+class ThriftObjectWrapper(ThriftObjectWrapperBase):
+    def __init__(self, object_):
+        ThriftObjectWrapperBase.__init__(self, object_)
 
     def __getattr__(self, name):
         attr = getattr(self._object, name)
 
-        return _native_type(attr)
+        f = ATTRIBUTE_SERIALIZER_MAP[self._attribute_types[name]]
+
+        return _native_type(f(attr))
+
+    def __setattr__(self, name, value):
+        if name in ('_object', '_attribute_types'):
+            ThriftObjectWrapperBase.__setattr__(self, name, value)
+            return
+
+        object_ =  ThriftObjectWrapperBase.__getattribute__(self, '_object')
+
+        f = ATTRIBUTE_DESERIALIZER_MAP[self._attribute_types[name]]
+
+        setattr(object_, name, f(value))
 
 
 class ThriftSerializer(object):
@@ -363,8 +416,9 @@ class ThriftSerializer(object):
         model_info = type_.PYMODEL_MODEL_INFO
         spec = generate_thrift_spec(model_info)
         object_ = type_()
-        thrift_read(object_, spec, data, _force_native=cls.FORCE_NATIVE)
-        return object_
+        wrapper = ThriftObjectWrapper(object_)
+        thrift_read(wrapper, spec, data, _force_native=cls.FORCE_NATIVE)
+        return wrapper._object
 
 
 if fastbinary:

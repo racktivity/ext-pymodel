@@ -35,6 +35,7 @@
 
 import uuid
 import operator
+import datetime
 
 class Field(object):
     def __init__(self, **kwargs):
@@ -83,6 +84,9 @@ class GUID(String):
 
 class Boolean(Field, ExposedField):
     VALID_TYPE = bool
+
+class DateTime(Field, ExposedField):
+    VALID_TYPE = datetime.datetime
 
 class EmptyObject: pass
 
