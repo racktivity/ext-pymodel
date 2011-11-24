@@ -1,10 +1,10 @@
+import inspect
 import logging
 import weakref
-import inspect
 
-from pymodel.fields import Field, GUID, String, WrappedList
+from pymodel.fields import Field, GUID, String
 
-logger = logging.getLogger('pymodel.model')
+LOGGER = logging.getLogger(__name__)
 
 GUIDField = GUID()
 GUIDField.name = 'guid'
@@ -26,12 +26,18 @@ class _PymodelModelInfo(object):
         self.type = None
         self.name = name
 
-        self.read_attributes(attrs)
+        self.attributes = self.read_attributes(attrs)
+        self.defaults = self.read_defaults(self.attributes)
 
     def read_attributes(self, attrs):
-        logger.debug('Creating attribute info for %s' % self.name)
-        self.attributes = tuple(_PymodelModelAttribute(*info) for info in
+        LOGGER.debug('Creating attribute info for %s' % self.name)
+        return tuple(_PymodelModelAttribute(*info) for info in
                 attrs.iteritems() if isinstance(info[1], Field))
+
+    def read_defaults(self, attrs):
+        return dict((attr.name, attr.attribute.kwargs['default'])
+            for attr in attrs
+            if 'default' in attr.attribute.kwargs)
 
     def __str__(self):
         return 'Pymodel model info for %s' % self.name
@@ -39,7 +45,7 @@ class _PymodelModelInfo(object):
 
 class ModelMeta(type):
     def __new__(cls, name, bases, attrs, allow_slots=False):
-        logger.info('Generating model type %s' % name)
+        LOGGER.info('Generating model type %s' % name)
         try:
             Model
             RootObjectModel
@@ -84,7 +90,9 @@ class ModelMeta(type):
 
         # Calculate and set __slots__ - see 'Datamodel' in the Python
         # language reference
-        slots = ['_pymodel_store', ]
+        # '_sa_instance_state' is something we need for SQLAlchemy ORM
+        # compatibilty (see pymodel.orm)
+        slots = ['_pymodel_store', '__weakref__', '_sa_instance_state', ]
         for attrname, attr in attrs.iteritems():
             if isinstance(attr, Field):
                 slots.append(attrname)
@@ -112,7 +120,7 @@ class Model(object):
     PYMODEL_MODEL_INFO = None
 
     def __init__(self, **kwargs):
-        self._pymodel_store = dict()
+        self._pymodel_store = self.PYMODEL_MODEL_INFO.defaults.copy()
 
         attribute_names = set(attr.name for attr in
                 self.PYMODEL_MODEL_INFO.attributes)
@@ -129,7 +137,6 @@ class Model(object):
             d[attr.name] = getattr(self, attr.name)
 
         return str(d)
-        
 
     def __eq__(self, other):
         if self is other:

@@ -96,13 +96,4 @@ try:
     SERIALIZERS['_%s' % XMLSerializer.NAME] = XMLSerializer
 except ImportError, e:
     logger.info('Unable to load XML serializer: %s' % e)
-    
-    
-try:
-    from .ThriftBase64Serializer import ThriftBase64Serializer
-    logger.info('Loaded thriftbase64 serializer')
-    __all__.append('ThriftBase64Serializer')
-    SERIALIZERS[ThriftBase64Serializer.NAME] = ThriftBase64Serializer
-    SERIALIZERS['_%s' % ThriftBase64Serializer.NAME] = ThriftBase64Serializer
-except ImportError, e:
-    logger.info('Unable to load thriftbase64 serializer: %s' % e)
+

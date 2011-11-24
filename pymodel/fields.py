@@ -33,8 +33,10 @@
 #
 # </License>
 
-import operator
 import uuid
+import datetime
+import operator
+
 class Field(object):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -44,7 +46,7 @@ class Field(object):
            # Accessed through class, not object
            return None
         try:
-            return obj._pymodel_store[self.name]
+            return obj._pymodel_store[self._name]
         except KeyError:
             return None
 
@@ -85,6 +87,9 @@ class GUID(String):
 class Boolean(Field, ExposedField):
     VALID_TYPE = bool
 
+class DateTime(Field, ExposedField):
+    VALID_TYPE = datetime.datetime
+
 class EmptyObject: pass
 
 def _ObjectHelper(type_):
@@ -97,10 +102,17 @@ def _ObjectHelper(type_):
 
     return _Helper()
 
-class Object(Field, ExposedField):
+class NoDefaultMixin(object):
+    def __init__(self, *args, **kwargs):
+        if 'default' in kwargs:
+            raise TypeError('Invalid keyword argument \'default\'')
+
+        super(NoDefaultMixin, self).__init__(*args, **kwargs)
+
+class Object(NoDefaultMixin, Field, ExposedField):
     def __init__(self, type_, **kwargs):
         self.type_ = type_
-        Field.__init__(self, **kwargs)
+        super(Object, self).__init__(**kwargs)
         self.helper = _ObjectHelper(self.type_)
 
     def __get__(self, obj, objtype=None):
@@ -155,16 +167,6 @@ class Enumeration(String):
 
         String.__set__(self, obj, value)
 
-class DateTime(Float):
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __set__(self, obj, value):
-        from datetime import datetime as dttime
-        if not isinstance(value, dttime) and value is not None:
-            raise TypeError('Only objects of type Datetime can be assigned to this field')
-
-        obj._pymodel_store[self.name] = value
 
 class Container(Field):
     pass
@@ -173,7 +175,6 @@ class SimpleContainer(Container):
     def __init__(self, type_, **kwargs):
         self.type_ = type_
         Container.__init__(self, **kwargs)
-
 
 class WrappedList: pass
 def TypedList(type_):
@@ -232,9 +233,9 @@ def TypedList(type_):
 
     return _List
 
-class List(SimpleContainer, ExposedField):
+class List(NoDefaultMixin, SimpleContainer, ExposedField):
     def __init__(self, type_, **kwargs):
-        SimpleContainer.__init__(self, type_, **kwargs)
+        super(List, self).__init__(type_, **kwargs)
         self.listtype = TypedList(type_)
 
     def __get__(self, obj, objtype=None):
@@ -316,9 +317,9 @@ def TypedDict(type_):
     return _Dict
 
 
-class Dict(SimpleContainer, ExposedField):
+class Dict(NoDefaultMixin, SimpleContainer, ExposedField):
     def __init__(self, type_, **kwargs):
-        SimpleContainer.__init__(self, type_, **kwargs)
+        super(Dict, self).__init__(type_, **kwargs)
         self.dicttype = TypedDict(type_)
 
     def __get__(self, obj, objtype=None):

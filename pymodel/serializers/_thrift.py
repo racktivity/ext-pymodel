@@ -33,7 +33,9 @@
 #
 # </License>
 
+import time
 import logging
+import datetime
 
 from thrift.Thrift import TType
 from thrift.transport import TTransport
@@ -51,15 +53,12 @@ except ImportError:
     logger.info('No PyMonkey Enumeration support')
     BaseEnumeration = None
 
-from pymodel.model import DEFAULT_FIELDS
 import pymodel
+from pymodel import Model
+from pymodel.model import DEFAULT_FIELDS
+from pymodel.fields import EmptyObject, WrappedDict, WrappedList
 
 TYPE_SPEC_CACHE = dict()
-
-# DATETIME type. Note that the value below needs to be modified keeping in mind the values ( for other types ) given in
-# 'thrift_python' q-package.( TType module ). The value below should not match any of the existing Thrift types.
-class LocTType:
-    DATETIME=19
 
 def struct_args(attr):
     return (attr.type_, generate_thrift_spec(attr.type_.PYMODEL_MODEL_INFO))
@@ -73,8 +72,6 @@ def list_args(attr):
     return (FIELD_TYPE_THRIFT_TYPE_MAP[type(attr.type_)](attr.type_),
             FIELD_TYPE_ATTR_ARGS_MAP[type(attr.type_)](attr.type_))
 
-
-
 FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.GUID: lambda o: None,
     pymodel.String: lambda o: None,
@@ -85,7 +82,7 @@ FIELD_TYPE_ATTR_ARGS_MAP = {
     pymodel.Dict: dict_args,
     pymodel.List: list_args,
     pymodel.Enumeration: lambda o: None,
-    pymodel.DateTime:lambda o: None,
+    pymodel.DateTime: lambda o: None,
 }
 
 FIELD_TYPE_THRIFT_TYPE_MAP = {
@@ -98,7 +95,7 @@ FIELD_TYPE_THRIFT_TYPE_MAP = {
     pymodel.Dict: lambda o: TType.MAP,
     pymodel.List: lambda o: TType.LIST,
     pymodel.Enumeration: lambda o: TType.STRING,
-    pymodel.DateTime:lambda o: LocTType.DATETIME,
+    pymodel.DateTime: lambda o: TType.I64,
 }
 
 def generate_thrift_spec(typeinfo):
@@ -157,17 +154,7 @@ WRITE_TYPE_HANDLERS = {
     TType.STRUCT: lambda data, prot, info: _write_struct(data, prot, info),
     TType.LIST: lambda data, prot, info: _write_list(data, prot, info),
     TType.MAP: lambda data, prot, info: _write_map(data, prot, info),
-    LocTType.DATETIME:lambda data,prot,info:_write_dateTime(data,prot,info),
 }
-
-def _write_dateTime(data,prot,info):
-    import time;
-    list=(data.year,data.month,data.day,data.hour,data.minute,data.second,data.microsecond)
-    data=list
-    prot.writeListBegin(TType.LIST, len(data))
-    for item in data:
-        prot.writeI32(item)
-    prot.writeListEnd()
 
 def _write_map(data, prot, info):
     assert info[0] == TType.STRING, 'Only string keys supported'
@@ -195,6 +182,7 @@ def _write_struct(data, prot, info):
         value = getattr(data, fname)
         if not value and value is not False and not value == 0:
             continue
+
         prot.writeFieldBegin(fname, ftype, fid)
         WRITE_TYPE_HANDLERS[ftype](value, prot, finfo)
         prot.writeFieldEnd()
@@ -232,19 +220,7 @@ READ_TYPE_HANDLERS = {
     TType.STRUCT: lambda prot, info: _read_struct(prot, info),
     TType.LIST: lambda prot, info: _read_list(prot, info),
     TType.MAP: lambda prot, info: _read_map(prot, info),
-    LocTType.DATETIME: lambda prot,info: _read_datetime(prot,info),
 }
-
-def _read_datetime(prot,info):
-    obj = list()
-    type_, size = prot.readListBegin()
-    for i in xrange(size):
-        item =prot.readI32()
-        obj.append(item)
-    prot.readListEnd()
-    import datetime
-    return datetime.datetime(obj[0],obj[1],obj[2],obj[3],obj[4],obj[5],obj[6])
-
 
 def _read_map(prot, info):
     obj = dict()
@@ -330,43 +306,78 @@ def thrift_read(obj, spec, data, _force_native=False):
 
 
 def _native_type(obj):
-    from pymodel.fields import EmptyObject, WrappedDict, WrappedList
-    from pymodel import Model
+    # Warning
+    # Whenever changing the code below the following block, make sure the
+    # conditions in this block are altere appropriately
+    if not isinstance(obj, (EmptyObject, Model, WrappedList, WrappedDict)):
+        if BaseEnumeration:
+            if not isinstance(obj, BaseEnumeration):
+                return obj
+        else:
+            return obj
 
     if isinstance(obj, EmptyObject):
         return None
 
-    if isinstance(obj, Model):
+    elif isinstance(obj, Model):
         return ThriftObjectWrapper(obj)
 
-    if isinstance(obj, WrappedList):
+    elif isinstance(obj, WrappedList):
         return [_native_type(item) for item in obj]
 
-    if isinstance(obj, WrappedDict):
+    elif isinstance(obj, WrappedDict):
         return dict((key, _native_type(value)) \
                     for (key, value) in obj.iteritems())
 
-    if BaseEnumeration:
+    elif BaseEnumeration:
         if isinstance(obj, BaseEnumeration):
             #TODO Get rid of protected lookup
             return getattr(obj, '_pm_enumeration_name')
 
-    return obj
+    # LEAVE THIS LINE AS-IS
+    assert False, 'Not reached'
 
+id_ = lambda v: v
+
+MICROSECOND_FACTOR = 10 ** 6
+
+ATTRIBUTE_TRANSFORMATION_MAP = {
+    pymodel.DateTime: (
+        lambda d: None if not d
+            else time.mktime(
+                d.timetuple()) * MICROSECOND_FACTOR + d.microsecond,
+        lambda t: None if t is None
+            else datetime.datetime.fromtimestamp(float(t) / 10 ** 6)
+    ),
+}
 
 class ThriftObjectWrapper(object):
     def __init__(self, object_):
         self._object = object_
 
+        self._attribute_types = dict((attr.name, type(attr.attribute))
+            for attr in object_.PYMODEL_MODEL_INFO.attributes)
+
     def __getattr__(self, name):
         attr = getattr(self._object, name)
 
-        return _native_type(attr)
+        ser, _ = ATTRIBUTE_TRANSFORMATION_MAP.get(self._attribute_types[name], (id_, id_))
+
+        return _native_type(ser(attr))
+
+    def __setattr__(self, name, value):
+        if name in ('_object', '_attribute_types'):
+            object.__setattr__(self, name, value)
+            return
+
+        _, des = ATTRIBUTE_TRANSFORMATION_MAP.get(self._attribute_types[name], (id_, id_))
+
+        setattr(self._object, name, des(value))
 
 
 class ThriftSerializer(object):
     NAME = 'thrift'
-    FORCE_NATIVE = True
+    FORCE_NATIVE = False
 
     @classmethod
     def serialize(cls, object_):
@@ -382,8 +393,9 @@ class ThriftSerializer(object):
         model_info = type_.PYMODEL_MODEL_INFO
         spec = generate_thrift_spec(model_info)
         object_ = type_()
-        thrift_read(object_, spec, data, _force_native=cls.FORCE_NATIVE)
-        return object_
+        wrapper = ThriftObjectWrapper(object_)
+        thrift_read(wrapper, spec, data, _force_native=cls.FORCE_NATIVE)
+        return wrapper._object
 
 
 if fastbinary:
