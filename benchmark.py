@@ -14,6 +14,7 @@ ThriftNative = pymodel.serializers.SERIALIZERS['_ThriftNative']
 ThriftOptimized = pymodel.serializers.SERIALIZERS['_ThriftOptimized']
 Yaml = pymodel.serializers.SERIALIZERS['yaml']
 Json = pymodel.serializers.SERIALIZERS['json']
+Dict = pymodel.serializers.SERIALIZERS['dict']
 
 dt = datetime.datetime.now()
 
@@ -67,6 +68,11 @@ def time(number):
     print 'JSON:',
     t = timeit.Timer(
         'run(s)', 'from __main__ import run, Json as s')
+    print t.timeit(number=number)
+
+    print 'Dict:',
+    t = timeit.Timer(
+        'run(s)', 'from __main__ import run, Dict as s')
     print t.timeit(number=number)
 
 @profilestats.profile
