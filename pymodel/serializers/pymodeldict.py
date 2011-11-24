@@ -73,7 +73,7 @@ TYPE_HANDLERS = {
     pymodel.List: handle_list,
     pymodel.Dict: handle_dict,
     pymodel.Object: lambda a, o: object_to_dict(o),
-    pymodel.DateTime: lambda a, o: time.mktime(o.timetuple()),
+    pymodel.DateTime: lambda a, o: time.mktime(o.timetuple()) + float(o.microsecond) / 10 ** 6,
 }
 
 
