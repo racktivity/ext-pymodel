@@ -12,6 +12,7 @@ import pymodel.serializers
 Thrift = pymodel.serializers.SERIALIZERS['thrift']
 ThriftNative = pymodel.serializers.SERIALIZERS['_ThriftNative']
 ThriftOptimized = pymodel.serializers.SERIALIZERS['_ThriftOptimized']
+Yaml = pymodel.serializers.SERIALIZERS['yaml']
 
 dt = datetime.datetime.now()
 
@@ -55,6 +56,11 @@ def time(number):
     print 'ThriftOptimized:',
     t = timeit.Timer(
         'run(s)', 'from __main__ import run, ThriftOptimized as s')
+    print t.timeit(number=number)
+
+    print 'Yaml:',
+    t = timeit.Timer(
+        'run(s)', 'from __main__ import run, Yaml as s')
     print t.timeit(number=number)
 
 @profilestats.profile
