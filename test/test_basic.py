@@ -1,6 +1,7 @@
 import unittest
 
 import pymodel as model
+import datetime
 
 class A(model.RootObjectModel):
     s = model.String(thrift_id=1)
@@ -10,7 +11,7 @@ class A(model.RootObjectModel):
     bf = model.Boolean(thrift_id=5)
 
     def __eq__(self, other):
-        return self.s == other.s and self.i == other.i and self.f == other.f
+        return all(getattr(self, name) == getattr(other, name) for name in ('s', 'i', 'f', 'bt', 'bf'))
 
 class TestModel(unittest.TestCase):
     def test_simple(self):
@@ -62,6 +63,20 @@ class TestModel(unittest.TestCase):
 
     def test_class_fields(self):
         self.assertEquals(None, A.s)
+
+    def test_datetime(self):
+        class CalendarEvent(model.RootObjectModel):
+            start = model.DateTime(thrift_id=1)
+
+            def __eq__(self, other):
+                return self.start == other.start
+
+        event = CalendarEvent()
+        event.start = datetime.datetime(2011, 11, 24, 0, 45, 45, 766858)
+        data = event.serialize(self.serializer)
+        event2 = CalendarEvent.deserialize(self.serializer, data)
+        self.assertEquals(event, event2)
+        
 
 import pymodel.test
 pymodel.test.setup(globals())
