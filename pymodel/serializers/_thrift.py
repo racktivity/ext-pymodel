@@ -347,7 +347,7 @@ ATTRIBUTE_TRANSFORMATION_MAP = {
             else time.mktime(
                 d.timetuple()) * MICROSECOND_FACTOR + d.microsecond,
         lambda t: None if t is None
-            else datetime.datetime.fromtimestamp(float(t) / 10 ** 6)
+            else datetime.datetime.fromtimestamp(float(t) / MICROSECOND_FACTOR)
     ),
 }
 
@@ -395,7 +395,7 @@ class ThriftSerializer(object):
         object_ = type_()
         wrapper = ThriftObjectWrapper(object_)
         thrift_read(wrapper, spec, data, _force_native=cls.FORCE_NATIVE)
-        return wrapper._object
+        return object_
 
 
 if fastbinary:
