@@ -80,6 +80,15 @@ except ImportError, e:
     logger.info('Unable to load YAML serializer: %s' % e)
 
 try:
+    from .pymodeljson import JsonSerializer
+    logger.info('Loaded JSON serializer')
+    __all__.append('JsonSerializer')
+    SERIALIZERS[JsonSerializer.NAME] = JsonSerializer
+    SERIALIZERS['_%s' % JsonSerializer.NAME] = JsonSerializer
+except ImportError, e:
+    logger.info('Unable to load JSON serializer: %s' % e)
+
+try:
     from .pymodeldict import DictSerializer
     logger.info('Loaded Dict serializer')
     __all__.append('DictSerializer')
