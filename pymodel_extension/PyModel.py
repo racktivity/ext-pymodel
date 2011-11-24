@@ -35,7 +35,6 @@
 
     
 import os, sys
-import base64
 
 from pymonkey import q
 from pymodel import init
@@ -45,6 +44,7 @@ import pymodel.utils
 from pymodel.serializers import ThriftSerializer
 from pymodel.serializers import YamlSerializer
 from pymodel.serializers import XMLSerializer
+from pymodel.serializers import ThriftBase64Serializer
 
 from pymodel import ROOTOBJECT_TYPES
 
@@ -75,8 +75,7 @@ class PyModelAccessor(object):
         return self._serialize(ThriftSerializer, data)
     
     def object2ThriftBase64Str(self, data):        
-        bytes_ = self.object2ThriftByteStr(data)
-        return base64.encodestring(str(bytes_))
+        return self._serialize(ThriftBase64Serializer, data)
     
     #deserializing methods
     def XML2object(self, data):
@@ -89,8 +88,7 @@ class PyModelAccessor(object):
         return self._deserializer(ThriftSerializer, data)
     
     def thriftBase64Str2object(self, data):
-        bytes_ = base64.decodestring(data)
-        return self.thriftByteStr2object(bytes_)
+        return self._deserializer(ThriftBase64Serializer, data)
     
     def _serialize(self, serializer, data):
         return data.serialize(serializer)
