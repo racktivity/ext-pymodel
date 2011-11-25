@@ -87,6 +87,7 @@ if False:
     pymodel.Float = object
     pymodel.Boolean = object
     pymodel.Object = object
+    pymodel.List = object
 
 _ATTR_COL_MAP = {
     pymodel.String: sqlalchemy.Text(),
@@ -96,6 +97,12 @@ _ATTR_COL_MAP = {
     pymodel.Boolean: sqlalchemy.Boolean(),
     # pymodel.Enumeration: sqlalchemy.Text(),
 }
+
+BASIC_ATTR_TYPES = (
+    pymodel.String, pymodel.GUID,
+    pymodel.Integer, pymodel.Float,
+    pymodel.Boolean,
+)
 
 class Context(object):
     '''Context used by the SQLAlchemy ORM glue
@@ -146,7 +153,7 @@ class Context(object):
         doc='Retrieve the `sqlalchemy.MetaData` instance used by this context')
 
 
-def _map_table(metadata, type_):
+def _map_table(metadata, type_, parent=None):
     '''Create a mapping for the given PyModel model type
 
     This procedure creates `sqlalchemy.Table` instances, based on metadata
@@ -180,19 +187,33 @@ def _map_table(metadata, type_):
             primary_key=True)
         table.append_column(col)
 
+    if parent:
+        parent_id_type, parent_name = parent
+        col = sqlalchemy.Column('_pymodel_parent_id', parent_id_type,
+            sqlalchemy.ForeignKey(parent_name))
+        table.append_column(col)
+
     properties = {}
 
-    for attr in meta.attributes:
+    if is_rootobject:
+        # Push 'guid' to front
+        attributes = [attr for attr in meta.attributes if attr.name == 'guid']
+        attributes.extend(attr for attr in meta.attributes
+            if attr.name != 'guid')
+    else:
+        attributes = meta.attributes
+
+    for attr in attributes:
         attr_name = attr.name
         attr_ = attr.attribute
 
-        if type(attr_) != pymodel.Object:
+        if type(attr_) in BASIC_ATTR_TYPES:
             primary_key = is_rootobject and attr_name == 'guid'
             col = sqlalchemy.Column(attr_name, _ATTR_COL_MAP[type(attr_)],
                 primary_key=primary_key)
 
             table.append_column(col)
-        else:
+        elif type(attr_) == pymodel.Object:
             sub = _map_table(metadata, attr.attribute.type_)
             tables.extend(sub)
 
@@ -203,6 +224,19 @@ def _map_table(metadata, type_):
             table.append_column(col)
             rel = sqlalchemy.orm.relationship(attr_.type_, uselist=False)
             properties[attr_name] = rel
+        elif type(attr_) == pymodel.List:
+            sub = _map_table(metadata, attr.attribute.type_,
+                (sqlalchemy.Integer if not is_rootobject
+                    else sqlalchemy.String(36),
+                '%s.%s' % (name,
+                    'guid' if is_rootobject else '_pymodel_id')))
+
+            tables.extend(sub)
+
+            rel = sqlalchemy.orm.relationship(attr.attribute.type_)
+            properties[attr_name] = rel
+        else:
+            raise NotImplementedError
 
         prop = sqlalchemy.orm.attributes.create_proxied_attribute(attr)
         prop_inst = prop(type_, attr_name, attr, None)

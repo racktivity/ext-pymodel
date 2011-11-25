@@ -209,3 +209,28 @@ class TestORM(unittest.TestCase):
             count += 1
 
         self.assertEqual(count, 2)
+
+    def test_simple_list(self):
+        class A(pymodel.Model):
+            i = pymodel.Integer(thrift_id=1)
+
+        class S(pymodel.RootObjectModel):
+            as_ = pymodel.List(A, thrift_id=2)
+
+        c = pymodel.orm.Context()
+        tables = c.register(S)
+
+        conn, session = self._get_session()
+        map(lambda t: t.create(conn), tables)
+
+        s = S()
+        s.guid = str(uuid.uuid4())
+
+        s.as_.append(A(i=1))
+        s.as_.append(A(i=2))
+
+        session.add(s)
+        session.commit()
+
+        for s_ in session.query(S).join(A).all():
+            self.assertEqual(sorted(a.i for a in s_.as_), [1, 2])
