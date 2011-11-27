@@ -35,15 +35,21 @@
 
 '''Basic testing script for `pymodel.orm`'''
 
-import uuid
-import unittest
 
 import sqlalchemy
+import datetime
+import uuid
+import unittest
 
 import pymodel
 import pymodel.orm
 import pymodel.serializers
 
+try:
+    from pylabs.baseclasses.BaseEnumeration import BaseEnumeration
+except:
+    from EnumStuff import BaseEnumeration
+    
 class TestORM(unittest.TestCase):
     @staticmethod
     def _get_session():
@@ -209,3 +215,166 @@ class TestORM(unittest.TestCase):
             count += 1
 
         self.assertEqual(count, 2)
+
+    def test_simple_list(self):
+        class A(pymodel.Model):
+            i = pymodel.Integer(thrift_id=1)
+
+        class S(pymodel.RootObjectModel):
+            as_ = pymodel.List(A, thrift_id=2)
+
+        c = pymodel.orm.Context()
+        tables = c.register(S)
+
+        conn, session = self._get_session()
+        map(lambda t: t.create(conn), tables)
+
+        s = S()
+        s.guid = str(uuid.uuid4())
+
+        s.as_.append(A(i=1))
+        s.as_.append(A(i=2))
+
+        session.add(s)
+        session.commit()
+
+        for s_ in session.query(S).join(A).all():
+            self.assertEqual(sorted(a.i for a in s_.as_), [1, 2])
+            
+            
+
+    def test_dict(self):
+        class A(pymodel.Model):
+            i = pymodel.Integer(thrift_id=1)
+
+        class S(pymodel.RootObjectModel):
+            as_ = pymodel.Dict(A, thrift_id=2)
+            
+        class T(pymodel.RootObjectModel):
+            is_ = pymodel.Dict(pymodel.Integer, thrift_id=1)
+
+        class U(pymodel.RootObjectModel):
+            ss_ = pymodel.Dict(pymodel.String, thrift_id=1)
+
+        c = pymodel.orm.Context()
+        conn, session = self._get_session()
+
+
+        for x in [S,T,U]:
+            tables = c.register(x)
+            map(lambda t: t.create(conn), tables)
+        
+        s = S( as_ = { 'a' : A(i=1) , 'b' : A (i=2) } )
+        s.guid = str(uuid.uuid4())
+        
+        session.add(s)
+        session.commit()
+
+        is_ = []
+        
+        for s_ in session.query(S).all():
+            for k in s_.as_:
+                is_.append(s_.as_[k].i)
+    
+        is_.sort()
+        self.assertEqual( [1,2], is_)
+
+        t = T()
+        t.guid = str(uuid.uuid4())
+        is_ = { 'a' : 4 , 'b' : 5 }
+        t.is_ = is_
+        session.add(t)
+        session.commit()
+        
+        
+        
+        ris_ = []
+        for t_ in session.query(T).all():
+            for k in t_.is_:
+                ris_.append( t_.is_[k] )
+        ris_.sort()
+        self.assertEqual( [4,5], ris_)
+        
+        u = U()
+        u.guid = str(uuid.uuid4())
+        ss_ = {'a' : "a", "b" : "b" }
+        u.ss_ = ss_
+        session.add(u)
+        session.commit()
+        
+        sis_ = []
+        for u_ in session.query(U).all():
+            for k in u_.ss_:
+                sis_.append( u_.ss_[k])
+        sis_.sort()
+        self.assertEqual(sis_, ["a", "b"])
+    
+    def test_datetime(self):
+        class A(pymodel.RootObjectModel):
+            d = pymodel.DateTime( thrift_id = 1 )
+            
+        c = pymodel.orm.Context()
+        conn, session = self._get_session()
+
+        for x in [A]:
+            tables = c.register(x)
+            map(lambda t: t.create(conn), tables)
+
+        desired = [2012, 7, 11, 23, 55, 03]
+        a = A ( d = datetime.datetime(*desired) )
+        a.guid = str(uuid.uuid4())
+        
+        session.add(a)
+        session.commit()
+        
+        ds_ = []
+        for a_ in session.query(A).all():
+            ds_.append(a_.d.year)
+            ds_.append(a_.d.month)
+            ds_.append(a_.d.day)
+            ds_.append(a_.d.hour)
+            ds_.append(a_.d.minute)
+            ds_.append(a_.d.second)
+    
+        self.assertEqual(ds_, desired)
+        
+    def test_enumeration(self):
+        class EnumTest(BaseEnumeration):
+            @classmethod
+            def _initItems(cls):
+                cls.registerItem('OPTION1')
+                cls.registerItem('OPTION2')
+                cls.finishItemRegistration()
+                
+        class A(pymodel.RootObjectModel):
+            e = pymodel.Enumeration(EnumTest, thrift_id=1)
+            
+        c = pymodel.orm.Context()
+        conn, session = self._get_session()
+
+        for x in [A]:
+            tables = c.register(x)
+            map(lambda t: t.create(conn), tables)
+
+        enums = [ EnumTest.OPTION1, EnumTest.OPTION2 ]
+        for e in enums:        
+            a = A()
+            a.guid = str(uuid.uuid4())
+            a.e = e
+            session.add(a)
+        session.commit()
+
+        found = []        
+        for a_ in session.query(A).all():
+            found.append(a_.e)
+        
+        found.sort(key=str)
+        self.assertEqual(enums, found)
+            
+        in_res = []
+        for a_ in session.query(A).filter(A.e.in_ ( [EnumTest.OPTION1])).all():
+            in_res.append(a_)
+            
+        self.assertEqual(len(in_res), 1)
+if __name__ == '__main__':
+    unittest.main()

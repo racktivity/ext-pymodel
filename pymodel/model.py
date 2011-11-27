@@ -163,7 +163,7 @@ class Model(object):
             return hash(self.guid) if self.guid else object.__hash__(self)
 
         return hash((self.guid, self.version, ))
-
+           
 class RootObjectModel(Model):
     __slots__ = tuple()
 

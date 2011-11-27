@@ -56,8 +56,93 @@ elif hasattr(sqlalchemy.orm.attributes, "proxied_attribute_factory"):
 
 import pymodel
 
+from pymodel.serializers._thrift import generate_dict_spec, thrift_write
+from pymodel.serializers._thrift import thrift_read, ThriftObjectWrapper
+
 LOGGER = logging.getLogger(__name__)
 
+
+class DictWrapper:
+    '''
+    Class wrapping dictionaries, used for storing dicts containing Pymodel objects / fields in DB
+    '''
+    def __init__ (self, name, d):
+        '''
+        Constructor
+        
+        @param name: Name of the object (same as in thrift spec of the dict)
+        @param d: The dictionary that is wrapped
+        '''
+        setattr(self, name, d)
+            
+class CustomDictPickler:
+    '''
+    Class used by the sqlalchemy PickleType to pickle/unpickle dicts containing Pymodel objects / Fields 
+    '''
+    def __init__(self, name, spec):
+        '''
+        Constructor 
+        
+        @param name: Name of the attribute in the spec containing the dictionary 
+        @param spec: The thrift spec used to serialize the dictionary
+        '''
+        self.name = name
+        self.spec = spec
+    
+    def loads(self, serialized):
+        '''
+        Deserialize a dictionary
+        
+        @param serialized The serialized dictionary
+        @return The desereliazied dict
+        '''
+        object_ = DictWrapper(self.name, dict())
+        thrift_read(object_, self.spec, serialized)
+        return getattr(object_, self.name)
+
+    def dumps(self, obj, protocol=None):
+        '''
+        Serialize a dictionary
+        
+        @param obj: The dictionary to serialize
+        @param protocol: Not used (just here to respect the Pickle interface)
+        @return The serialized dictionary
+        '''
+        obj_ = DictWrapper(self.name, obj)
+        data = thrift_write(obj_, self.spec)
+        return data 
+
+
+class CustomEnumPickler:
+    '''
+     Class used by the sqlalchemy PickleType to pickle/unpickle dicts
+    '''
+    def __init__(self, enumType):
+        '''
+        Constructor 
+        
+        '''
+        self.enumType = enumType
+    
+    def loads(self, serialized):
+        '''
+        Deserialize an enumeration instance
+        
+        @param serialized: The serialized enumeration
+        @return The desereliazied dict        
+        '''
+        return self.enumType.getByName(serialized)
+    
+    def dumps(self, obj, protocol=None):
+        '''
+        Serialize an enumeration
+        
+        @param obj: The enumeration to serialize
+        @param protocol: Not used (just here to respect the Pickle interface)
+        @return The serialized enumeration
+        '''
+        return str(obj)
+    
 def patch_sqlalchemy():
     '''Monkey-patch SQLAlchemy for PyModel compatibility'''
 
@@ -95,6 +180,7 @@ if False:
     pymodel.Float = object
     pymodel.Boolean = object
     pymodel.Object = object
+    pymodel.List = object
 
 _ATTR_COL_MAP = {
     pymodel.String: sqlalchemy.Text(),
@@ -102,8 +188,15 @@ _ATTR_COL_MAP = {
     pymodel.Integer: sqlalchemy.Integer(),
     pymodel.Float: sqlalchemy.Float(),
     pymodel.Boolean: sqlalchemy.Boolean(),
-    # pymodel.Enumeration: sqlalchemy.Text(),
+    pymodel.DateTime: sqlalchemy.DateTime() 
 }
+
+BASIC_ATTR_TYPES = (
+    pymodel.String, pymodel.GUID,
+    pymodel.Integer, pymodel.Float,
+    pymodel.Boolean, pymodel.DateTime,
+#    pymodel.Enumeration
+)
 
 class Context(object):
     '''Context used by the SQLAlchemy ORM glue
@@ -154,7 +247,7 @@ class Context(object):
         doc='Retrieve the `sqlalchemy.MetaData` instance used by this context')
 
 
-def _map_table(metadata, type_):
+def _map_table(metadata, type_, parent=None):
     '''Create a mapping for the given PyModel model type
 
     This procedure creates `sqlalchemy.Table` instances, based on metadata
@@ -188,29 +281,75 @@ def _map_table(metadata, type_):
             primary_key=True)
         table.append_column(col)
 
+    if parent:
+        parent_id_type, parent_name = parent
+        col = sqlalchemy.Column('_pymodel_parent_id', parent_id_type,
+            sqlalchemy.ForeignKey(parent_name))
+        table.append_column(col)
+    
     properties = {}
 
-    for attr in meta.attributes:
+    if is_rootobject:
+        # Push 'guid' to front
+        attributes = [attr for attr in meta.attributes if attr.name == 'guid']
+        attributes.extend(attr for attr in meta.attributes
+            if attr.name != 'guid')
+    else:
+        attributes = meta.attributes
+
+    for attr in attributes:
         attr_name = attr.name
         attr_ = attr.attribute
 
-        if type(attr_) != pymodel.Object:
+        if type(attr_) in BASIC_ATTR_TYPES:
             primary_key = is_rootobject and attr_name == 'guid'
             col = sqlalchemy.Column(attr_name, _ATTR_COL_MAP[type(attr_)],
                 primary_key=primary_key)
 
             table.append_column(col)
-        else:
+        elif type(attr_) == pymodel.Object:
             sub = _map_table(metadata, attr.attribute.type_)
             tables.extend(sub)
-
             sub_name = attr_.type_.PYMODEL_MODEL_INFO.name
-
             col = sqlalchemy.Column('%s_id' % attr_name, sqlalchemy.Integer(),
                 sqlalchemy.ForeignKey('%s._pymodel_id' % sub_name.lower()))
             table.append_column(col)
             rel = sqlalchemy.orm.relationship(attr_.type_, uselist=False)
             properties[attr_name] = rel
+        elif type(attr_) == pymodel.List:
+            sub = _map_table(metadata, attr.attribute.type_,
+                (sqlalchemy.Integer if not is_rootobject
+                    else sqlalchemy.String(36),
+                '%s.%s' % (name,
+                    'guid' if is_rootobject else '_pymodel_id')))
+
+            tables.extend(sub)
+
+            rel = sqlalchemy.orm.relationship(attr.attribute.type_)
+            properties[attr_name] = rel
+
+        elif type(attr_) == pymodel.Dict:
+            # Rather 'crooked' type check
+            # isinstance(attr_.type_, pymodel.Model) would have been better but for some reason is not working...
+            if hasattr(attr_.type_, '_pymodel_store'  ) :
+                f = pymodel.Object(attr_.type_) 
+            else:
+                f = attr_.type_ ()
+
+            name = "%s_%s" % (name, attr_name)
+            thrift_spec = generate_dict_spec(name, f)
+            pickler = CustomDictPickler( name, thrift_spec)
+            col = sqlalchemy.Column(attr_name, 
+                                    sqlalchemy.PickleType(pickler=pickler))
+            table.append_column(col)
+        
+        elif type(attr_) == pymodel.Enumeration:
+            pickler = CustomEnumPickler(attr_.type_)
+            col= sqlalchemy.Column(attr_name, sqlalchemy.PickleType(pickler=pickler) )
+            table.append_column(col)
+        
+        else:
+            raise NotImplementedError
 
         if HAS_PROXIED_ATTRIBUTE_FACTORY:
             prop = sqlalchemy.orm.attributes.proxied_attribute_factory(attr)
