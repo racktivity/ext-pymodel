@@ -3,7 +3,6 @@ import logging
 import weakref
 
 from pymodel.fields import Field, GUID, String
-import pylabs
 
 LOGGER = logging.getLogger(__name__)
 
@@ -133,12 +132,9 @@ class Model(object):
             setattr(self, key, value)
 
     def __str__(self):
-        serializer=pylabs.q.db.pymodelserializers.yaml()
-        d=serializer.serialize(self)
-        #d = dict()
-        #for attr in self.PYMODEL_MODEL_INFO.attributes:
-            #d[attr.name] = getattr(self, attr.name)
-        return str(d)
+        import pymodel.serializers
+        serializer = pymodel.serializers.YamlSerializer
+        return serializer.serialize(self)
     
     def __repr__(self):
         return self.__str__()
