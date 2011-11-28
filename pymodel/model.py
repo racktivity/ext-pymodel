@@ -158,7 +158,14 @@ class Model(object):
             return hash(self.guid) if self.guid else object.__hash__(self)
 
         return hash((self.guid, self.version, ))
+    
+    def serialize(self, serializer):
+        return serializer.serialize(self)
 
+    @classmethod
+    def deserialize(cls, deserializer, data):
+        return deserializer.deserialize(cls, data)
+        
 class RootObjectModel(Model):
     __slots__ = tuple()
 

@@ -234,3 +234,79 @@ class TestORM(unittest.TestCase):
 
         for s_ in session.query(S).join(A).all():
             self.assertEqual(sorted(a.i for a in s_.as_), [1, 2])
+            
+            
+
+    def test_dict(self):
+        class A(pymodel.Model):
+            i = pymodel.Integer(thrift_id=1)
+
+        class S(pymodel.RootObjectModel):
+            as_ = pymodel.Dict(A, thrift_id=2)
+            
+        class T(pymodel.RootObjectModel):
+            is_ = pymodel.Dict(pymodel.Integer, thrift_id=1)
+
+        class U(pymodel.RootObjectModel):
+            ss_ = pymodel.Dict(pymodel.String, thrift_id=1)
+
+        c = pymodel.orm.Context()
+        
+        
+        conn, session = self._get_session()
+
+        for x in [S,T,U]:
+            tables = c.register(x)
+            map(lambda t: t.create(conn), tables)
+        
+        s = S()
+        s.guid = str(uuid.uuid4())
+        
+        d = { 'a' : A(i=1) , 'b' : A (i=2) }
+        s.as_ = d 
+
+        session.add(s)
+        session.commit()
+
+        for s_ in session.query(S).all():
+            print s_
+            for k in s_.as_:
+                print "%s -> %s" % (k, s_.as_[k].i)
+    
+        
+
+        t = T()
+        t.guid = str(uuid.uuid4())
+        is_ = { 'a' : 4 , 'b' : 5 }
+        t.is_ = is_
+        session.add(t)
+        session.commit()
+        
+        for t_ in session.query(T).all():
+            print t_
+            for k in t_.is_:
+                print "%s -> %s" % (k, t_.is_[k])
+        
+        u = U()
+        u.guid = str(uuid.uuid4())
+        ss_ = {'a' : "a", "b" : "b" }
+        u.ss_ = ss_
+        session.add(u)
+        session.commit()
+        
+        for u_ in session.query(U).all():
+            print u_
+            for k in u_.ss_:
+                print "%s -> %s" % (k, u_.ss_[k])
+        
+        serializer = pymodel.serializers.SERIALIZERS['_ThriftNative']
+        s = S()
+        s.serialize(serializer)
+        
+        
+if __name__ == "__main__":
+    loader = unittest.TestLoader()
+    loader.loadTestsFromTestCase(TestORM)
+    unittest.main(testLoader=loader)
+
+    

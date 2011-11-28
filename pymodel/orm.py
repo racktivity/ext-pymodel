@@ -46,9 +46,50 @@ import operator
 import sqlalchemy
 import sqlalchemy.orm
 
+import functools
 import pymodel
+import struct
 
 LOGGER = logging.getLogger(__name__)
+
+class CustomDictPickler:
+    
+    def __init__(self, obj_serialize, obj_deserialize):
+        self.serialize = obj_serialize
+        self.deserialize = obj_deserialize
+    
+    def loads(self, serialized):
+
+        count = struct.unpack_from ( "i", serialized) [0]
+        off = 4
+        ret_val = dict()
+        for i in range(count):
+            key_len = struct.unpack_from("i", serialized, off) [0]
+            off += 4
+            key = serialized[off:off+key_len]
+            off += key_len
+            ser_len = struct.unpack_from("i", serialized, off) [0]
+            off += 4
+            value = self.deserialize( serialized[off:off+ser_len])
+            off += ser_len
+            ret_val [key] = value
+        return ret_val
+
+    def dumps(self, obj, protocol=None):
+        #model_info = self.model_info
+        #spec = generate_thrift_spec(model_info)
+        #wrapped = ThriftObjectWrapper(object_)
+        #data = thrift_write(wrapped, spec, _force_native=True)
+        
+        result = struct.pack("i", len(obj))
+        for (k,v) in obj.iteritems():
+            result += struct.pack("i", len(k))
+            result += k
+            serialized = self.serialize(v)
+            result += struct.pack("i", len(serialized))
+            result += serialized
+        return result 
+
 
 def patch_sqlalchemy():
     '''Monkey-patch SQLAlchemy for PyModel compatibility'''
@@ -192,7 +233,7 @@ def _map_table(metadata, type_, parent=None):
         col = sqlalchemy.Column('_pymodel_parent_id', parent_id_type,
             sqlalchemy.ForeignKey(parent_name))
         table.append_column(col)
-
+    
     properties = {}
 
     if is_rootobject:
@@ -216,9 +257,7 @@ def _map_table(metadata, type_, parent=None):
         elif type(attr_) == pymodel.Object:
             sub = _map_table(metadata, attr.attribute.type_)
             tables.extend(sub)
-
             sub_name = attr_.type_.PYMODEL_MODEL_INFO.name
-
             col = sqlalchemy.Column('%s_id' % attr_name, sqlalchemy.Integer(),
                 sqlalchemy.ForeignKey('%s._pymodel_id' % sub_name.lower()))
             table.append_column(col)
@@ -235,6 +274,22 @@ def _map_table(metadata, type_, parent=None):
 
             rel = sqlalchemy.orm.relationship(attr.attribute.type_)
             properties[attr_name] = rel
+
+        elif type(attr_) == pymodel.Dict:
+            serializer = pymodel.serializers.SERIALIZERS['_ThriftNative']
+            
+            if attr.attribute.type_ == pymodel.Integer :
+                ser = lambda x: struct.pack("i", x)
+                des = lambda x: struct.unpack("i", x) [0] 
+            elif attr.attribute.type_ == pymodel.String :
+                ser = des = lambda x: x
+            else:
+                ser = serializer.serialize
+                des = functools.partial(serializer.deserialize, attr.attribute.type_)
+            pickler = CustomDictPickler(ser,des)
+            col = sqlalchemy.Column(attr_name, 
+                                    sqlalchemy.PickleType(pickler=pickler) )
+            table.append_column(col)
         else:
             raise NotImplementedError
 
