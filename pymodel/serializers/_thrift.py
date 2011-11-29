@@ -37,6 +37,7 @@ import time
 import logging
 import datetime
 
+from pymodel.model import ModelMeta
 from thrift.Thrift import TType
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
@@ -59,6 +60,7 @@ from pymodel.model import DEFAULT_FIELDS
 from pymodel.fields import EmptyObject, WrappedDict, WrappedList
 
 TYPE_SPEC_CACHE = dict()
+DICT_SPEC_CACHE = dict()
 
 def struct_args(attr):
     return (attr.type_, generate_thrift_spec(attr.type_.PYMODEL_MODEL_INFO))
@@ -97,6 +99,30 @@ FIELD_TYPE_THRIFT_TYPE_MAP = {
     pymodel.Enumeration: lambda o: TType.STRING,
     pymodel.DateTime: lambda o: TType.I64,
 }
+
+class AttrWrapper(object):
+    __slots__ = 'type_',
+
+    def __init__(self, type_):
+        self.type_ = type_
+
+
+def generate_dict_spec(name, type_):
+    try:
+        return DICT_SPEC_CACHE[type_]
+    except KeyError:
+        pass
+    
+    spec = [None,]
+    id_ = 1
+
+    attr = AttrWrapper( type_ )
+    args = dict_args(attr)
+    spec.append((id_, TType.MAP, name, args, None, ))
+
+    ret = DICT_SPEC_CACHE[type_] = tuple(spec)
+    return ret
+
 
 def generate_thrift_spec(typeinfo):
     try:

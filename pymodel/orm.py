@@ -50,45 +50,31 @@ import functools
 import pymodel
 import struct
 
+from pymodel.serializers._thrift import generate_dict_spec, thrift_write, thrift_read, ThriftObjectWrapper
+from pymodel.model import ModelMeta
+
 LOGGER = logging.getLogger(__name__)
 
+
+class DictWrapper:
+    def __init__ (self, name, d):
+        setattr(self,name,d)
+            
 class CustomDictPickler:
     
-    def __init__(self, obj_serialize, obj_deserialize):
-        self.serialize = obj_serialize
-        self.deserialize = obj_deserialize
+    def __init__(self, name, spec):
+        self.name = name
+        self.spec = spec
     
     def loads(self, serialized):
-
-        count = struct.unpack_from ( "i", serialized) [0]
-        off = 4
-        ret_val = dict()
-        for i in range(count):
-            key_len = struct.unpack_from("i", serialized, off) [0]
-            off += 4
-            key = serialized[off:off+key_len]
-            off += key_len
-            ser_len = struct.unpack_from("i", serialized, off) [0]
-            off += 4
-            value = self.deserialize( serialized[off:off+ser_len])
-            off += ser_len
-            ret_val [key] = value
-        return ret_val
+        object_ = DictWrapper(self.name, dict() )
+        thrift_read(object_, self.spec, serialized)
+        return getattr(object_, self.name)
 
     def dumps(self, obj, protocol=None):
-        #model_info = self.model_info
-        #spec = generate_thrift_spec(model_info)
-        #wrapped = ThriftObjectWrapper(object_)
-        #data = thrift_write(wrapped, spec, _force_native=True)
-        
-        result = struct.pack("i", len(obj))
-        for (k,v) in obj.iteritems():
-            result += struct.pack("i", len(k))
-            result += k
-            serialized = self.serialize(v)
-            result += struct.pack("i", len(serialized))
-            result += serialized
-        return result 
+        obj_ = DictWrapper(self.name, obj)
+        data = thrift_write(obj_, self.spec)
+        return data 
 
 
 def patch_sqlalchemy():
@@ -136,7 +122,8 @@ _ATTR_COL_MAP = {
     pymodel.Integer: sqlalchemy.Integer(),
     pymodel.Float: sqlalchemy.Float(),
     pymodel.Boolean: sqlalchemy.Boolean(),
-    # pymodel.Enumeration: sqlalchemy.Text(),
+    pymodel.Enumeration: sqlalchemy.Text(),
+    pymodel.DateTime: sqlalchemy.Integer()
 }
 
 BASIC_ATTR_TYPES = (
@@ -276,17 +263,16 @@ def _map_table(metadata, type_, parent=None):
             properties[attr_name] = rel
 
         elif type(attr_) == pymodel.Dict:
-            serializer = pymodel.serializers.SERIALIZERS['_ThriftNative']
-            
-            if attr.attribute.type_ == pymodel.Integer :
-                ser = lambda x: struct.pack("i", x)
-                des = lambda x: struct.unpack("i", x) [0] 
-            elif attr.attribute.type_ == pymodel.String :
-                ser = des = lambda x: x
+            if hasattr(attr_.type_, '_pymodel_store'  ) :
+                f = pymodel.Object(attr_.type_) 
+                #m = attr_.type_.PYMODEL_MODEL_INFO
             else:
-                ser = serializer.serialize
-                des = functools.partial(serializer.deserialize, attr.attribute.type_)
-            pickler = CustomDictPickler(ser,des)
+                f = attr_.type_ ()
+                #m = None
+            import uuid
+            name = str(uuid.uuid4())
+            thrift_spec = generate_dict_spec( name, f )
+            pickler = CustomDictPickler( name, thrift_spec)
             col = sqlalchemy.Column(attr_name, 
                                     sqlalchemy.PickleType(pickler=pickler) )
             table.append_column(col)

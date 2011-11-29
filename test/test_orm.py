@@ -255,16 +255,14 @@ class TestORM(unittest.TestCase):
         
         conn, session = self._get_session()
 
+
         for x in [S,T,U]:
             tables = c.register(x)
             map(lambda t: t.create(conn), tables)
         
-        s = S()
+        s = S( as_ = { 'a' : A(i=1) , 'b' : A (i=2) } )
         s.guid = str(uuid.uuid4())
         
-        d = { 'a' : A(i=1) , 'b' : A (i=2) }
-        s.as_ = d 
-
         session.add(s)
         session.commit()
 
@@ -299,14 +297,3 @@ class TestORM(unittest.TestCase):
             for k in u_.ss_:
                 print "%s -> %s" % (k, u_.ss_[k])
         
-        serializer = pymodel.serializers.SERIALIZERS['_ThriftNative']
-        s = S()
-        s.serialize(serializer)
-        
-        
-if __name__ == "__main__":
-    loader = unittest.TestLoader()
-    loader.loadTestsFromTestCase(TestORM)
-    unittest.main(testLoader=loader)
-
-    
