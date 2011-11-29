@@ -108,7 +108,7 @@ class AttrWrapper(object):
 
 def generate_dict_spec(name, type_):
     try:
-        return DICT_SPEC_CACHE[type_]
+        return DICT_SPEC_CACHE[name]
     except KeyError:
         pass
     
@@ -119,7 +119,7 @@ def generate_dict_spec(name, type_):
     args = dict_args(attr)
     spec.append((id_, TType.MAP, name, args, None, ))
 
-    ret = DICT_SPEC_CACHE[type_] = tuple(spec)
+    ret = DICT_SPEC_CACHE[name] = tuple(spec)
     return ret
 
 

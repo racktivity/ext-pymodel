@@ -371,5 +371,10 @@ class TestORM(unittest.TestCase):
         found.sort(key=str)
         self.assertEqual(enums, found)
             
+        in_res = []
+        for a_ in session.query(A).filter(A.e.in_ ( [EnumTest.OPTION1])).all():
+            in_res.append(a_)
+            
+        self.assertEqual(len(in_res), 1)
 if __name__ == '__main__':
     unittest.main()
