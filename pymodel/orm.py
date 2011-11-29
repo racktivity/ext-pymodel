@@ -55,21 +55,51 @@ LOGGER = logging.getLogger(__name__)
 
 
 class DictWrapper:
+    '''
+    Class wrapping dictionaries, used for storing dicts containing Pymodel objects / fields in DB
+    '''
     def __init__ (self, name, d):
+        '''
+        Constructor
+        
+        @param name: Name of the object (same as in thrift spec of the dict)
+        @param d: The dictionary that is wrapped
+        '''
         setattr(self, name, d)
             
 class CustomDictPickler:
-    
+    '''
+    Class used by the sqlalchemy PickleType to pickle/unpickle dicts containing Pymodel objects / Fields 
+    '''
     def __init__(self, name, spec):
+        '''
+        Constructor 
+        
+        @param name: Name of the attribute in the spec containing the dictionary 
+        @param spec: The thrift spec used to serialize the dictionary
+        '''
         self.name = name
         self.spec = spec
     
     def loads(self, serialized):
+        '''
+        Deserialize a dictionary
+        
+        @param serialized The serialized dictionary
+        @return The desereliazied dict
+        '''
         object_ = DictWrapper(self.name, dict())
         thrift_read(object_, self.spec, serialized)
         return getattr(object_, self.name)
 
     def dumps(self, obj, protocol=None):
+        '''
+        Serialize a dictionary
+        
+        @param obj: The dictionary to serialize
+        @param protocol: Not used (just here to respect the Pickle interface)
+        @return The serialized dictionary
+        '''
         obj_ = DictWrapper(self.name, obj)
         data = thrift_write(obj_, self.spec)
         return data 
@@ -261,6 +291,8 @@ def _map_table(metadata, type_, parent=None):
             properties[attr_name] = rel
 
         elif type(attr_) == pymodel.Dict:
+            # Rather 'crooked' type check
+            # isinstance(attr_.type_, pymodel.Model) would have been better but for some reason is not working...
             if hasattr(attr_.type_, '_pymodel_store'  ) :
                 f = pymodel.Object(attr_.type_) 
             else:
