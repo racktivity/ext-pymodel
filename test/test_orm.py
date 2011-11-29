@@ -315,9 +315,20 @@ class TestORM(unittest.TestCase):
             tables = c.register(x)
             map(lambda t: t.create(conn), tables)
 
-        a = A ( d = datetime.datetime(2012, 7, 11) )
+        desired = [2012, 7, 11, 23, 55, 03]
+        a = A ( d = datetime.datetime(*desired) )
         a.guid = str(uuid.uuid4())
         
         session.add(a)
         session.commit()
         
+        ds_ = []
+        for a_ in session.query(A).all():
+            ds_.append(a_.d.year)
+            ds_.append(a_.d.month)
+            ds_.append(a_.d.day)
+            ds_.append(a_.d.hour)
+            ds_.append(a_.d.minute)
+            ds_.append(a_.d.second)
+    
+        self.assertEqual(ds_, desired)
