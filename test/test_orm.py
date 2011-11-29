@@ -371,3 +371,5 @@ class TestORM(unittest.TestCase):
         found.sort(key=str)
         self.assertEqual(enums, found)
             
+if __name__ == '__main__':
+    unittest.main()

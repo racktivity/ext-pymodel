@@ -328,8 +328,7 @@ def _map_table(metadata, type_, parent=None):
             else:
                 f = attr_.type_ ()
 
-            import uuid
-            name = str(uuid.uuid4())
+            name = "%s_%s" % (name, attr_name)
             thrift_spec = generate_dict_spec(name, f)
             pickler = CustomDictPickler( name, thrift_spec)
             col = sqlalchemy.Column(attr_name, 
