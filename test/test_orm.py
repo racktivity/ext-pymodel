@@ -35,16 +35,21 @@
 
 '''Basic testing script for `pymodel.orm`'''
 
-import uuid
-import unittest
 
 import sqlalchemy
 import datetime
+import uuid
+import unittest
 
 import pymodel
 import pymodel.orm
 import pymodel.serializers
 
+try:
+    from pylabs.baseclasses.BaseEnumeration import BaseEnumeration
+except:
+    from EnumStuff import BaseEnumeration
+    
 class TestORM(unittest.TestCase):
     @staticmethod
     def _get_session():
@@ -332,3 +337,33 @@ class TestORM(unittest.TestCase):
             ds_.append(a_.d.second)
     
         self.assertEqual(ds_, desired)
+        
+    def test_enumeration(self):
+        class EnumTest(BaseEnumeration):
+            @classmethod
+            def _initItems(cls):
+                cls.registerItem('OPTION1')
+                cls.registerItem('OPTION2')
+                cls.finishItemRegistration()
+                
+        class A(pymodel.RootObjectModel):
+            e = pymodel.Enumeration(EnumTest, thrift_id=1)
+            
+        c = pymodel.orm.Context()
+        conn, session = self._get_session()
+
+        for x in [A]:
+            tables = c.register(x)
+            map(lambda t: t.create(conn), tables)
+        
+        a = A()
+        a.guid = str(uuid.uuid4())
+        e = str(EnumTest.OPTION1)
+        a.e = e
+        session.add(a)
+        session.commit()
+        
+        for a_ in session.query(A).all():
+            self.assertEqual(a_.e, e)
+            
+            

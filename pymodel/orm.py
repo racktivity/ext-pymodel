@@ -157,7 +157,8 @@ _ATTR_COL_MAP = {
 BASIC_ATTR_TYPES = (
     pymodel.String, pymodel.GUID,
     pymodel.Integer, pymodel.Float,
-    pymodel.Boolean, pymodel.DateTime
+    pymodel.Boolean, pymodel.DateTime,
+    pymodel.Enumeration
 )
 
 class Context(object):
