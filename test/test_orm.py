@@ -355,15 +355,19 @@ class TestORM(unittest.TestCase):
         for x in [A]:
             tables = c.register(x)
             map(lambda t: t.create(conn), tables)
-        
-        a = A()
-        a.guid = str(uuid.uuid4())
-        e = str(EnumTest.OPTION1)
-        a.e = e
-        session.add(a)
+
+        enums = [ EnumTest.OPTION1, EnumTest.OPTION2 ]
+        for e in enums:        
+            a = A()
+            a.guid = str(uuid.uuid4())
+            a.e = e
+            session.add(a)
         session.commit()
-        
+
+        found = []        
         for a_ in session.query(A).all():
-            self.assertEqual(a_.e, e)
-            
+            found.append(a_.e)
+        
+        found.sort(key=str)
+        self.assertEqual(enums, found)
             

@@ -105,6 +105,36 @@ class CustomDictPickler:
         return data 
 
 
+class CustomEnumPickler:
+    '''
+     Class used by the sqlalchemy PickleType to pickle/unpickle dicts
+    '''
+    def __init__(self, enumType):
+        '''
+        Constructor 
+        
+        '''
+        self.enumType = enumType
+    
+    def loads(self, serialized):
+        '''
+        Deserialize an enumeration instance
+        
+        @param serialized: The serialized enumeration
+        @return The desereliazied dict        
+        '''
+        return self.enumType.getByName(serialized)
+    
+    def dumps(self, obj, protocol=None):
+        '''
+        Serialize an enumeration
+        
+        @param obj: The enumeration to serialize
+        @param protocol: Not used (just here to respect the Pickle interface)
+        @return The serialized enumeration
+        '''
+        return str(obj)
+    
 def patch_sqlalchemy():
     '''Monkey-patch SQLAlchemy for PyModel compatibility'''
 
@@ -150,7 +180,6 @@ _ATTR_COL_MAP = {
     pymodel.Integer: sqlalchemy.Integer(),
     pymodel.Float: sqlalchemy.Float(),
     pymodel.Boolean: sqlalchemy.Boolean(),
-    pymodel.Enumeration: sqlalchemy.Text(),
     pymodel.DateTime: sqlalchemy.DateTime() 
 }
 
@@ -158,7 +187,7 @@ BASIC_ATTR_TYPES = (
     pymodel.String, pymodel.GUID,
     pymodel.Integer, pymodel.Float,
     pymodel.Boolean, pymodel.DateTime,
-    pymodel.Enumeration
+#    pymodel.Enumeration
 )
 
 class Context(object):
@@ -306,6 +335,12 @@ def _map_table(metadata, type_, parent=None):
             col = sqlalchemy.Column(attr_name, 
                                     sqlalchemy.PickleType(pickler=pickler))
             table.append_column(col)
+        
+        elif type(attr_) == pymodel.Enumeration:
+            pickler = CustomEnumPickler(attr_.type_)
+            col= sqlalchemy.Column(attr_name, sqlalchemy.PickleType(pickler=pickler) )
+            table.append_column(col)
+        
         else:
             raise NotImplementedError
 
