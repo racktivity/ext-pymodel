@@ -46,19 +46,17 @@ import operator
 import sqlalchemy
 import sqlalchemy.orm
 
-import functools
 import pymodel
-import struct
 
-from pymodel.serializers._thrift import generate_dict_spec, thrift_write, thrift_read, ThriftObjectWrapper
-from pymodel.model import ModelMeta
+from pymodel.serializers._thrift import generate_dict_spec, thrift_write
+from pymodel.serializers._thrift import thrift_read, ThriftObjectWrapper
 
 LOGGER = logging.getLogger(__name__)
 
 
 class DictWrapper:
     def __init__ (self, name, d):
-        setattr(self,name,d)
+        setattr(self, name, d)
             
 class CustomDictPickler:
     
@@ -67,7 +65,7 @@ class CustomDictPickler:
         self.spec = spec
     
     def loads(self, serialized):
-        object_ = DictWrapper(self.name, dict() )
+        object_ = DictWrapper(self.name, dict())
         thrift_read(object_, self.spec, serialized)
         return getattr(object_, self.name)
 
@@ -123,13 +121,13 @@ _ATTR_COL_MAP = {
     pymodel.Float: sqlalchemy.Float(),
     pymodel.Boolean: sqlalchemy.Boolean(),
     pymodel.Enumeration: sqlalchemy.Text(),
-    pymodel.DateTime: sqlalchemy.Integer()
+    pymodel.DateTime: sqlalchemy.DateTime() 
 }
 
 BASIC_ATTR_TYPES = (
     pymodel.String, pymodel.GUID,
     pymodel.Integer, pymodel.Float,
-    pymodel.Boolean,
+    pymodel.Boolean, pymodel.DateTime
 )
 
 class Context(object):
@@ -265,16 +263,15 @@ def _map_table(metadata, type_, parent=None):
         elif type(attr_) == pymodel.Dict:
             if hasattr(attr_.type_, '_pymodel_store'  ) :
                 f = pymodel.Object(attr_.type_) 
-                #m = attr_.type_.PYMODEL_MODEL_INFO
             else:
                 f = attr_.type_ ()
-                #m = None
+
             import uuid
             name = str(uuid.uuid4())
-            thrift_spec = generate_dict_spec( name, f )
+            thrift_spec = generate_dict_spec(name, f)
             pickler = CustomDictPickler( name, thrift_spec)
             col = sqlalchemy.Column(attr_name, 
-                                    sqlalchemy.PickleType(pickler=pickler) )
+                                    sqlalchemy.PickleType(pickler=pickler))
             table.append_column(col)
         else:
             raise NotImplementedError

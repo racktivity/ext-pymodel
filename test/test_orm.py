@@ -39,6 +39,7 @@ import uuid
 import unittest
 
 import sqlalchemy
+import datetime
 
 import pymodel
 import pymodel.orm
@@ -251,8 +252,6 @@ class TestORM(unittest.TestCase):
             ss_ = pymodel.Dict(pymodel.String, thrift_id=1)
 
         c = pymodel.orm.Context()
-        
-        
         conn, session = self._get_session()
 
 
@@ -266,12 +265,14 @@ class TestORM(unittest.TestCase):
         session.add(s)
         session.commit()
 
-        for s_ in session.query(S).all():
-            print s_
-            for k in s_.as_:
-                print "%s -> %s" % (k, s_.as_[k].i)
-    
+        is_ = []
         
+        for s_ in session.query(S).all():
+            for k in s_.as_:
+                is_.append(s_.as_[k].i)
+    
+        is_.sort()
+        self.assertEqual( [1,2], is_)
 
         t = T()
         t.guid = str(uuid.uuid4())
@@ -280,10 +281,14 @@ class TestORM(unittest.TestCase):
         session.add(t)
         session.commit()
         
+        
+        
+        ris_ = []
         for t_ in session.query(T).all():
-            print t_
             for k in t_.is_:
-                print "%s -> %s" % (k, t_.is_[k])
+                ris_.append( t_.is_[k] )
+        ris_.sort()
+        self.assertEqual( [4,5], ris_)
         
         u = U()
         u.guid = str(uuid.uuid4())
@@ -292,8 +297,27 @@ class TestORM(unittest.TestCase):
         session.add(u)
         session.commit()
         
+        sis_ = []
         for u_ in session.query(U).all():
-            print u_
             for k in u_.ss_:
-                print "%s -> %s" % (k, u_.ss_[k])
+                sis_.append( u_.ss_[k])
+        sis_.sort()
+        self.assertEqual(sis_, ["a", "b"])
+    
+    def test_datetime(self):
+        class A(pymodel.RootObjectModel):
+            d = pymodel.DateTime( thrift_id = 1 )
+            
+        c = pymodel.orm.Context()
+        conn, session = self._get_session()
+
+        for x in [A]:
+            tables = c.register(x)
+            map(lambda t: t.create(conn), tables)
+
+        a = A ( d = datetime.datetime(2012, 7, 11) )
+        a.guid = str(uuid.uuid4())
+        
+        session.add(a)
+        session.commit()
         

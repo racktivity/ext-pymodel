@@ -37,7 +37,6 @@ import time
 import logging
 import datetime
 
-from pymodel.model import ModelMeta
 from thrift.Thrift import TType
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
@@ -116,7 +115,7 @@ def generate_dict_spec(name, type_):
     spec = [None,]
     id_ = 1
 
-    attr = AttrWrapper( type_ )
+    attr = AttrWrapper(type_)
     args = dict_args(attr)
     spec.append((id_, TType.MAP, name, args, None, ))
 
