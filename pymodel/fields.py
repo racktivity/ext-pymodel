@@ -53,8 +53,8 @@ class Field(object):
     def __set__(self, obj, value):
         if not isinstance(value, self.VALID_TYPE) and value is not None:
             raise TypeError(
-                'Only objects of type %s can be assigned to this field' % \
-                str(self.VALID_TYPE))
+                'Only objects of type %s can be assigned to the field %s' % \
+                (str(self.VALID_TYPE), self.name))
 
         obj._pymodel_store[self.name] = value
 
