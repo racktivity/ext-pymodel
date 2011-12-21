@@ -54,6 +54,7 @@ except ImportError:
 from pymodel.model import DEFAULT_FIELDS
 import pymodel
 
+ENCODING = 'utf-8'
 TYPE_SPEC_CACHE = dict()
 
 # DATETIME type. Note that the value below needs to be modified keeping in mind the values ( for other types ) given in
@@ -149,7 +150,7 @@ def generate_thrift_spec(typeinfo):
 
 
 WRITE_TYPE_HANDLERS = {
-    TType.STRING: lambda data, prot, info: prot.writeString(data),
+    TType.STRING: lambda data, prot, info: _write_string(data, prot, info),
     TType.I32: lambda data, prot, info: prot.writeI32(data),
     TType.I64: lambda data, prot, info: prot.writeI64(data),
     TType.BOOL: lambda data, prot, info: prot.writeBool(data),
@@ -159,6 +160,13 @@ WRITE_TYPE_HANDLERS = {
     TType.MAP: lambda data, prot, info: _write_map(data, prot, info),
     LocTType.DATETIME:lambda data,prot,info:_write_dateTime(data,prot,info),
 }
+
+def _write_string(data, prot, info):
+   if isinstance(data, unicode):
+       bytes = data.encode(ENCODING)
+   else:
+       bytes = data
+   prot.writeString(bytes)
 
 def _write_dateTime(data,prot,info):
     import time;
