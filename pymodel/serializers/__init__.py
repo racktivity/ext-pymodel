@@ -44,7 +44,7 @@ __all__ = ['SERIALIZERS', ]
 
 try:
     from ._thrift import ThriftSerializer
-    logger.info('Loaded Thrift serializer')
+    #logger.info('Loaded Thrift serializer')
     __all__.append('ThriftSerializer')
     SERIALIZERS[ThriftSerializer.NAME] = ThriftSerializer
 except ImportError, e:
@@ -57,14 +57,14 @@ else:
     # * A native Python one
     try:
         from ._thrift import OptimizedSerializer
-        logger.debug('Loaded optimized Thrift serializer')
+        #logger.debug('Loaded optimized Thrift serializer')
         SERIALIZERS[OptimizedSerializer.NAME] = OptimizedSerializer
     except ImportError, e:
         logger.debug('Unable to load optimized Thrift serializer: %s' % e)
 
     try:
         from ._thrift import NativeSerializer
-        logger.debug('Loaded native Thrift serializer')
+        #logger.debug('Loaded native Thrift serializer')
         SERIALIZERS[NativeSerializer.NAME] = NativeSerializer
     except ImportError, e:
         logger.debug('Unable to load native Thrift serializer: %s' % e)
@@ -72,7 +72,7 @@ else:
 
 try:
     from .pymodelyaml import YamlSerializer
-    logger.info('Loaded YAML serializer')
+    #logger.info('Loaded YAML serializer')
     __all__.append('YamlSerializer')
     SERIALIZERS[YamlSerializer.NAME] = YamlSerializer
     SERIALIZERS['_%s' % YamlSerializer.NAME] = YamlSerializer
@@ -81,7 +81,7 @@ except ImportError, e:
 
 try:
     from .pymodeldict import DictSerializer
-    logger.info('Loaded Dict serializer')
+    #logger.info('Loaded Dict serializer')
     __all__.append('DictSerializer')
     SERIALIZERS[DictSerializer.NAME] = DictSerializer
 except ImportError, e:
@@ -90,17 +90,17 @@ except ImportError, e:
 
 try:
     from .XMLSerializer import XMLSerializer
-    logger.info('Loaded XML serializer')
+    #logger.info('Loaded XML serializer')
     __all__.append('XMLSerializer')
     SERIALIZERS[XMLSerializer.NAME] = XMLSerializer
     SERIALIZERS['_%s' % XMLSerializer.NAME] = XMLSerializer
 except ImportError, e:
     logger.info('Unable to load XML serializer: %s' % e)
-    
-    
+
+
 try:
     from .ThriftBase64Serializer import ThriftBase64Serializer
-    logger.info('Loaded thriftbase64 serializer')
+    #logger.info('Loaded thriftbase64 serializer')
     __all__.append('ThriftBase64Serializer')
     SERIALIZERS[ThriftBase64Serializer.NAME] = ThriftBase64Serializer
     SERIALIZERS['_%s' % ThriftBase64Serializer.NAME] = ThriftBase64Serializer

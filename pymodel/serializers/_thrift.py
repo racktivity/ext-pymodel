@@ -108,7 +108,7 @@ def generate_thrift_spec(typeinfo):
     except KeyError:
         pass
 
-    logger.info('Generating thrift spec for %s' % typeinfo.name)
+    #logger.info('Generating thrift spec for %s' % typeinfo.name)
 
     spec = [None, ]
     id_ = len(spec)

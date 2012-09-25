@@ -40,13 +40,10 @@ import os
 import os.path
 import imp
 import new
-import logging
 import inspect
 import hashlib
 
 from pymodel.model import RootObjectModel #pylint: disable-msg=E0611
-
-logger = logging.getLogger('pymodel.utils') #pylint: disable-msg=C0103
 
 def _get_module_name(path):
     return 'pymodel._loader.%s' % hashlib.sha1(path).hexdigest()
@@ -60,7 +57,7 @@ def load_rootobject_types(path, package=None):
     @return: Iterable of all root object types
     @rtype: iterable
     '''
-    logger.info('Loading RootObjectModel definitions in %s', path)
+    #logger.info('Loading RootObjectModel definitions in %s', path)
     path = os.path.realpath(path)
 
     if not package:
@@ -95,14 +92,14 @@ def load_rootobject_types(path, package=None):
         @rtype: generator
         '''
         for module_name, module_path in find_modules():
-            logger.debug('Loading %s' % module_path)
+            #logger.debug('Loading %s' % module_path)
 
             modname = '%s.%s' % (pymodel_module_name, module_name)
             if modname in sys.modules:
-                logger.debug('%s already loaded', modname)
+                #logger.debug('%s already loaded', modname)
                 yield sys.modules[modname]
             else:
-                logger.debug('Loading %s from %s', modname, module_path)
+                #logger.debug('Loading %s from %s', modname, module_path)
                 yield imp.load_source(modname, module_path)
 
     syspath = sys.path[:]
@@ -115,7 +112,7 @@ def load_rootobject_types(path, package=None):
                 if inspect.isclass(attr) and \
                    issubclass(attr, RootObjectModel) and \
                    attr.__module__ == module.__name__: # Get around imports
-                    logger.info('Found RootObjectModel \'%s\'' % attr.__name__)
+                    #logger.info('Found RootObjectModel \'%s\'' % attr.__name__)
                     yield attr
     finally:
         imp.release_lock()
@@ -134,12 +131,12 @@ def find_rootobject_types(path, domain):
     @return: Generator yielding all L{RootObjectModel} subtypes found
     @rtype: generator
     '''
-    logger.info('Looking up RootObjectModel definitions in %s' % path)
+    #logger.info('Looking up RootObjectModel definitions in %s' % path)
 
     pymodel_module_name = 'pymodel.%s._rootobjects' % domain
 
     if pymodel_module_name not in sys.modules:
-        logger.debug('Creating fake %s module' % pymodel_module_name)
+        #logger.debug('Creating fake %s module' % pymodel_module_name)
 
         mod = new.module(pymodel_module_name)
         sys.modules[pymodel_module_name] = mod

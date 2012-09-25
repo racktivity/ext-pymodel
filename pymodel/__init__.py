@@ -38,9 +38,7 @@ __all__ = ['Model', 'RootObjectModel', ]
 
 #Load all types
 def _install():
-    import logging
-    logger = logging.getLogger('pymodel.model')
-    logger.info('Installing field types')
+    #logger.info('Installing field types')
 
     import inspect
 
@@ -51,20 +49,20 @@ def _install():
     glob = globals()
 
     #Load all exposed Field types
-    logger.debug('Loading field types')
+    #logger.debug('Loading field types')
     for attr_name in (name for name in dir(field_mod) if not
             name.startswith('_')):
         attr = getattr(field_mod, attr_name)
         if inspect.isclass(attr) and issubclass(attr, ExposedField) \
            and attr is not ExposedField:
-            logger.debug('Found field type %s' % attr_name)
+            #logger.debug('Found field type %s' % attr_name)
             if attr_name in glob:
                 raise RuntimeError('%s already defined' % attr_name)
             glob[attr_name] = attr
             __all__.append(attr_name)
 
     #Clean up module, so tab completion is nice and shiny
-    logger.debug('Cleaning up package globals')
+    #logger.debug('Cleaning up package globals')
     for name, value in glob.copy().iteritems():
         if name.startswith('__'):
             continue
@@ -87,19 +85,19 @@ def init(model_path, model_domain):
 
     @param model_path: Folder path containing all root object model modules for domain
     @type model_path: string
-    
-    
+
+
     @param model_domain: Name of the domain where rootobjects belong to
-    @type model_domain: string    
-    
+    @type model_domain: string
+
     '''
     import pymodel.utils
 
     types = pymodel.utils.find_rootobject_types(model_path, model_domain)
-    
+
     if not model_domain in ROOTOBJECT_TYPES.keys():
         ROOTOBJECT_TYPES[model_domain] = {}
-        
+
 
     for type_ in types:
         name = type_.__name__
@@ -128,14 +126,14 @@ def load_models(model_path):
     return pymodel.utils.load_rootobject_types(model_path)
 
 
-        
+
 # Set up binding to PyMonkey logging
 def _setup_pylabs_logging():
     '''Relay Pymodel log messages to PyMonkey logging if available
 
     Pymodel uses the standard Python *logging* module to perform logging. This
-    function makes sure any messages logged to the logging module in the 
-    *pymodel* namespace is relayed to the PyMonkey logging subsystem using 
+    function makes sure any messages logged to the logging module in the
+    *pymodel* namespace is relayed to the PyMonkey logging subsystem using
     an appropriate loglevel.
     '''
     import logging
